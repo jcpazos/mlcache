@@ -1,0 +1,19 @@
+\section{Proposal}
+
+We propose applying neural network learning to achieve application-controlled
+caching.  We think that applying supervised learning might be too tedious for
+the developer, as this would defeat the purpose of detaching the developer from
+the policy design (it might be useful for basic schemes like consecutive
+writes, reads, etc.).  Instead, we believe unsupervised learning, based on
+pattern matching or clustering should still provide performance benefits, while
+almost completely removing the need for data access analysis from the
+developer.  Training should be based on real-world uses of applications, as
+opposed to idealized uses like sequential accesses.  The required modifications
+can be implemented either at kernel-level or user-level.  There’s work to be
+done to figure out what overhead there is when applications give caching
+suggestions to the kernel, vs.  the possible overhead of the kernel having to
+manage multiple policies for different applications.  A possible compromise is
+setting an expected cache miss rate, and only optimizing for applications that
+exhibit higher miss rates than the expected.  We also need to take into account
+the fact that this learning can be a slow process, and applying it to every
+single application is not necessarily an attractive approach.

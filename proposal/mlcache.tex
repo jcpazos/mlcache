@@ -1,0 +1,34 @@
+\documentclass[sigconf]{acmart}
+\settopmatter{printacmref=false} % Removes citation information below abstract
+\renewcommand\footnotetextcopyrightpermission[1]{} % removes footnote with conference information in first column
+\pagestyle{plain} % removes running headers
+\usepackage{booktabs} % For formal tables
+\usepackage{listings}
+
+\begin{document}
+\title{MLCache: Using Adaptive Techniques to Improve the Disk Cache}
+
+\author{Jose Pazos}
+\affiliation{%
+  \institution{University of British Columbia}
+}
+\email{jpazos@cs.ubc.ca}
+
+\author{Renato Costa}
+\affiliation{%
+  \institution{University of British Columbia}
+}
+\email{renatomc@cs.ubc.ca}
+
+\input{abstract}
+\maketitle
+\input{introduction}
+\input{proposal}
+\input{methodology}
+\input{eval}
+\input{conclusion}
+
+\bibliographystyle{ACM-Reference-Format}
+\bibliography{references}
+
+\end{document}
