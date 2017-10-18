@@ -16,7 +16,7 @@ kinds of load.
 
 \item A backup utility: tools like \texttt{dump(1)} and \texttt{restore(1)} typically
 have to scan the entire file system when generating incremental backups. They are also
-likely to be sensitive to modifications at the buffer cache layer.
+likely to be sensitive to modifications at the page cache layer.
 
 \item A process that does sequential reading: we plan to measure the impact of our
 changes on tools like \texttt{grep(1)}.
