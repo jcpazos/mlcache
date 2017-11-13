@@ -30,25 +30,39 @@ double reward(double choice, double t) {
 	else return 1;
 }
 
-double pull(struct UCB_struct* ucb) {
+int pull(struct UCB_struct* ucb, struct Cache* cache) {
 	//TODO: do we update all actions regardless of not being in cache?
 	for (i=0; i<numActions;i++) {
 		ucb->ucbs[i] = ucb->payoffSums[i]/ucb->numPlays[i] + upperBound(ucb->t, ucb->numPlays[i]);
 	}
-	int action = 0;
-	//get action that maximizes gain. TODO: check if action is in cache currently before choosing it.
-	for (i=0;i<numActions;i++) {
-		if (ucb->ucbs[i] > ucb->ucbs[action]) {
+	int action = -1;
+	//get action that maximizes gain.
+	//if training, just use best action overall
+	if (cache == NULL) {
+		action = 0;
+		for (i=0;i<numActions;i++) {
+			if (ucb->ucbs[i] > ucb->ucbs[action]) {
 			action = i;
+			}
+		}
+	//else use best action in cache
+	} else {
+		action = cache->blocks_array[0];
+		for (i=0;i<cache->cache_size;i++) {
+			if (ucb->ucbs[cache->blocks_array[i]] > ucb->ucbs[action]) {
+				action = cache->blocks_array[i];
+			}
 		}
 	}
 	double theReward = reward(action, ucb->t);
 	ucb->numPlays[action]++;
 	ucb->payoffSums[action]+= theReward;
 	ucb->t++;
+	return action;
 }
 
-struct UCB_struct* ucb1(int numActions, int trials /*might want to pass function pointer for reward in future*/) {
+//initialize the UCB
+struct UCB_struct* ucb1(int numActions, int trials /*might want to pass function pointer for reward in the future*/) {
 	struct UCB_struct* newUCB = (struct UCB_struct*) malloc(sizeof(struct UCB_struct));
 	newUCB->numActions = numActions;
 	newUCB->trials = trials;

@@ -3,6 +3,8 @@
 #include <string.h>
 #include "ucb1.h"
 
+#define CACHE_SIZE 1000
+
 //Node for doubly-linked list
 struct Node  {
 	int blockNo;
@@ -22,7 +24,8 @@ struct Cache {
     int write_policy;
     int curr_size;
     struct Node* blocks;
-    int* blocks;    
+    int blocks_array[CACHE_SIZE];
+    struct UCB_struct* theUCB;
 };
 
 struct Cache* cache; //global cache
@@ -92,39 +95,70 @@ void writeToCache(int blockNo) {
 	cache->curr_size++;
 }*/
 
-void removeFromCacheUCB() {
+/*Functions for cache managing with UCB */
+//-----------------------------------------------------------------------------
+int findBlock(blockNo) {
 	int i = 0;
-	for(i=0;i<cache->cache_size;i++){
-		if cache->UCB.pull();
+	for (i=0; i < cache->curr_size; i++) {
+		if (blockNo == cache->blocks_array[i]) {
+			return i;
+		}
 	}
+	return 0;
+}
+
+int findEmptyLine() {
+	int i = 0;
+	for (i=0; i <cache->curr_size; i++) {
+		if (cache->bloc_array[i] == -1) {
+			return i;
+		}
+	}
+}
+
+void insertUCB(int blockNo, int idx) {
+	cache->blocks_array[idx] = blockNo;
+}
+
+int removeFromCacheUCB() {
+	int idx = findBlock(pull(cache->theUCB, cache));
+	cache->blocks_array[idx] = -1;
+	return idx;
 }
 
 void writeToCacheUCB(int blockNo) {
 	//if cache is at limit size, evict block with lowest ucb
+	int toInsert = -1;
 	if (cache->curr_size == cache->cache_size) {
-		removeFromCacheUCB();
-		cache->curr_size--;
+		toInsert = removeFromCacheUCB();
+		cache->curr_size--;	
 	}
-	insertUCB(blockNo);
+	if (toInsert == -1) {
+		toInsert = findEmptyLine();
+	}
+	insertUCB(blockNo, toInsert);
 	cache->curr_size++;
 }
 
 struct UCB_struct* readFromCacheUCB(int blockNo) {
+	//TODO: should we also reward blocks that stay in the cache at each read?
 	int toRead = findBlock(blockNo);
 	if (toRead == NULL) {
 		//block to read isn't in cache, get it from memory
+		//TODO: reward last page removed
 		cache->misses++;
-		writeToCacheUBC(blockNo);
+		writeToCacheUCB(blockNo);
 		cache->writes++;
-		cache->reads++;
 	} else {
 		//block to read is in cache
+		//TODO: reward all pages in cache
 		cache->hits++;
-		bringToHead(toRead);
-		cache->reads++;
 	}
+	cache->reads++;
 	return toRead;
 }
+
+// -----------------------------------------------------------------------------------
 
 /*readFromCache for LRU
 struct Node* readFromCache(int blockNo) {
@@ -170,14 +204,18 @@ int main() {
 	cache->misses = 0;
 	cache->reads = 0;
 	cache->writes = 0;
-	cache->cache_size = 1000;
+	cache->cache_size = CACHE_SIZE;
 	cache->curr_size = 0;
 	cache->blocks = head;
 
 	int i=0;
+	for (i=0; i < CACHE_SIZE; i++) {
+		cache->blocks_array[i] = -1;
+	}
 	//sequential reads, all misses;
 	for (i=0; i<10000; i++) {
-		readFromCache(i);
+		//readFromCache(i);
+		readFromCacheUCB(i);
 	}
 	printf("All done, cache misses: %d, cache hits: %d, cache reads: %d, cache writes: %d \n", cache->misses, cache->hits, cache->reads, cache->writes);
 
