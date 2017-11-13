@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "ucb1.h"
 
 //Node for doubly-linked list
 struct Node  {
@@ -20,7 +21,8 @@ struct Cache {
     int numLines;
     int write_policy;
     int curr_size;
-    struct Node* blocks;    
+    struct Node* blocks;
+    int* blocks;    
 };
 
 struct Cache* cache; //global cache
@@ -78,17 +80,53 @@ struct Node* findNode(int blockNo) {
 	return NULL;
 }
 
+/*writeToCache for LRU
 void writeToCache(int blockNo) {
 	struct Node* toInsert = newNode(blockNo);
 	//if cache is at limit size, evict LRU block
 	if (cache->curr_size == cache->cache_size) {
-		cache->curr_size--;
 		removeFromTail();
+		cache->curr_size--;
 	}
 	insertAtHead(toInsert);
 	cache->curr_size++;
+}*/
+
+void removeFromCacheUCB() {
+	int i = 0;
+	for(i=0;i<cache->cache_size;i++){
+		if cache->UCB.pull();
+	}
 }
 
+void writeToCacheUCB(int blockNo) {
+	//if cache is at limit size, evict block with lowest ucb
+	if (cache->curr_size == cache->cache_size) {
+		removeFromCacheUCB();
+		cache->curr_size--;
+	}
+	insertUCB(blockNo);
+	cache->curr_size++;
+}
+
+struct UCB_struct* readFromCacheUCB(int blockNo) {
+	int toRead = findBlock(blockNo);
+	if (toRead == NULL) {
+		//block to read isn't in cache, get it from memory
+		cache->misses++;
+		writeToCacheUBC(blockNo);
+		cache->writes++;
+		cache->reads++;
+	} else {
+		//block to read is in cache
+		cache->hits++;
+		bringToHead(toRead);
+		cache->reads++;
+	}
+	return toRead;
+}
+
+/*readFromCache for LRU
 struct Node* readFromCache(int blockNo) {
 	struct Node* toRead = findNode(blockNo);
 	if (toRead == NULL) {
@@ -104,9 +142,8 @@ struct Node* readFromCache(int blockNo) {
 		cache->reads++;
 	}
 	return head;
-}
+}*/
 
-//resets the cache
 void resetCache() {
 	struct Node* tmp1 = head;
 	struct Node* tmp2;
