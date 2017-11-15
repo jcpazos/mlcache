@@ -1,4 +1,0 @@
-# Soft dependencies extracted from modules themselves.
-softdep ipmi_msghandler post: ipmi_devintf
-softdep sctp_probe pre: sctp
-softdep libcrc32c pre: crc32c
