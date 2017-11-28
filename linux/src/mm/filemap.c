@@ -40,6 +40,7 @@
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/filemap.h>
+#include <trace/events/mlcache.h>
 
 /*
  * FIXME: remove all knowledge of the buffer layer from the core VM
@@ -1442,6 +1443,9 @@ repeat:
 	page = find_get_entry(mapping, offset);
 	if (radix_tree_exceptional_entry(page))
 		page = NULL;
+
+	trace_mlcache_event(offset, page ? MLCACHE_HIT : MLCACHE_MISS, current->pid);
+
 	if (!page)
 		goto no_page;
 

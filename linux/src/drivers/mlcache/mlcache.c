@@ -2,12 +2,24 @@
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
 
+#include <trace/events/mlcache.h>
+
 #define PROCNAME ("mlcache")
 #define MLCACHE_DISABLED (-1)
 #define MAX_PID_LEN (10)
 
 struct proc_dir_entry *root;
 long mlcache_pid = MLCACHE_DISABLED;
+
+static void mlcache_pageget(void *data, pgoff_t off, int type, pid_t pid) {
+		if (mlcache_pid == MLCACHE_DISABLED)
+				return;
+
+		if (mlcache_pid == current->pid) {
+				char *res = type == MLCACHE_HIT ? "hit" : "miss";
+				printk(KERN_INFO "Got page cache lookup on offset %ld from %ld (%s)\n", (long) off, (long) pid, res);
+		}
+}
 
 static int mlcache_show(struct seq_file *m, void *v) {
 		if (mlcache_pid == MLCACHE_DISABLED) {
@@ -57,12 +69,15 @@ static const struct file_operations mlcache_fops = {
 };
 
 static int __init mlcache_init(void) {
-		proc_create("mlcache", 0, NULL, &mlcache_fops);
+		proc_create("mlcache", S_IRWXUGO, NULL, &mlcache_fops);
+		register_trace_mlcache_event(mlcache_pageget, NULL);
 		return 0;
 }
 
 static void __exit mlcache_exit(void) {
 		remove_proc_entry("mlcache", NULL);
+		unregister_trace_mlcache_event(mlcache_pageget, NULL);
+		tracepoint_synchronize_unregister();
 }
 
 MODULE_LICENSE("GPL");
