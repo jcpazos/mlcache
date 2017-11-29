@@ -5,53 +5,98 @@
 #include <trace/events/mlcache.h>
 
 #define PROCNAME ("mlcache")
-#define MLCACHE_DISABLED (-1)
-#define MAX_PID_LEN (10)
+#define MLCACHE_DISABLED (0)
+#define MAX_WATCH_LIST (10) /* watch at most 10 processes */
+#define MAX_PID_LEN (10) /* each PID should have be most 10 bytes long */
+#define MAX_WRITE_LEN (MAX_PID_LEN * MAX_WATCH_LIST) /* write at most 100 bytes at a time */
+#define MLCACHE_SEP (',') /* PID separator when defining which processes to watch */
 
-struct proc_dir_entry *root;
-long mlcache_pid = MLCACHE_DISABLED;
+static long mlcache_pid[MAX_WATCH_LIST] = { MLCACHE_DISABLED };
+static int mlcache_cnt = 0;
 
 static void mlcache_pageget(void *data, pgoff_t off, int type, pid_t pid) {
-		if (mlcache_pid == MLCACHE_DISABLED)
+		int i;
+		char *res = type == MLCACHE_HIT ? "hit" : "miss";
+
+		if (mlcache_cnt == 0)
 				return;
 
-		if (mlcache_pid == current->pid) {
-				char *res = type == MLCACHE_HIT ? "hit" : "miss";
-				printk(KERN_INFO "Got page cache lookup on offset %ld from %ld (%s)\n", (long) off, (long) pid, res);
+		printk(KERN_INFO "Requester: %ld | Index: %ld | Result: %s\n", (long) pid, (long) off, res);
+		for (i = 0; i < mlcache_cnt; i++) {
+				if (mlcache_pid[i] == current->pid) {
+						char *res = type == MLCACHE_HIT ? "hit" : "miss";
+						printk(KERN_INFO "Requester: %ld | Index: %ld | Result: %s\n", (long) pid, (long) off, res);
+						break;
+				}
 		}
 }
 
 static int mlcache_show(struct seq_file *m, void *v) {
-		if (mlcache_pid == MLCACHE_DISABLED) {
-				seq_printf(m, "ML Cache is currently not enabled.\n");
+		if (mlcache_cnt == 0) {
+				seq_printf(m, "MLCache is currently not enabled.\n");
 		} else {
-				seq_printf(m, "ML Cache is enabled for process %ld\n", mlcache_pid);
+				int i;
+
+				seq_printf(m, "MLCache is enabled for processes: [");
+				for (i = 0; i < mlcache_cnt; i++) {
+						if (i > 0)
+								seq_printf(m, ", ");
+
+						seq_printf(m, "%ld", mlcache_pid[i]);
+				}
+
+				seq_printf(m, "]\n");
 		}
 		return 0;
 }
 
-static ssize_t mlcache_write(struct file * m, const char *buf, size_t len, loff_t *off) {
+static int add_pid(char *buf) {
 		long new_pid;
-		int i;
+
+		if (kstrtol(buf, 10, &new_pid) != 0) {
+				return -EINVAL;
+		}
+
+		mlcache_pid[mlcache_cnt++] = new_pid;
+		if (mlcache_cnt == MAX_WATCH_LIST)
+				return -EINVAL;
+
+		return 1;
+}
+
+static ssize_t mlcache_write(struct file * m, const char *buf, size_t len, loff_t *off) {
+		int i, j;
 		char bufcp[MAX_PID_LEN];
 
-		if (len > MAX_PID_LEN)
+		if (len > MAX_WRITE_LEN)
 				return -EINVAL;
 
+		j = 0;
+		mlcache_cnt = 0;
 		for (i = 0; i < len; i++) {
-				bufcp[i] = buf[i];
+				if (buf[i] == '\n')
+						continue;
+
+				if (buf[i] == MLCACHE_SEP) {
+						bufcp[j] = '\0';
+
+						if (add_pid(bufcp) < 0)
+								return -EINVAL;
+
+						j = 0;
+						continue;
+				}
+
+				bufcp[j++] = buf[i];
+
 		}
 
-		/* remove trailing newline, if any */
-		if (bufcp[len-1] == '\n')
-				bufcp[len-1] = '\0';
-
-		/* content given is not a valid PID */
-		if (kstrtol(bufcp, 10, &new_pid) != 0) {
-				return -EINVAL;
+		if (j > 0) {
+				bufcp[j] = '\0';
+				if (add_pid(bufcp) < 0)
+						return -EINVAL;
 		}
 
-		mlcache_pid = new_pid;
 		return len;
 }
 
