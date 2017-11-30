@@ -1444,8 +1444,6 @@ repeat:
 	if (radix_tree_exceptional_entry(page))
 		page = NULL;
 
-	trace_mlcache_event(offset, page ? MLCACHE_HIT : MLCACHE_MISS, current->pid);
-
 	if (!page)
 		goto no_page;
 
@@ -1979,6 +1977,8 @@ find_page:
 		}
 
 		page = find_get_page(mapping, index);
+		trace_mlcache_event(index, page ? MLCACHE_HIT : MLCACHE_MISS, current->pid);
+
 		if (!page) {
 			if (iocb->ki_flags & IOCB_NOWAIT)
 				goto would_block;
@@ -1986,6 +1986,7 @@ find_page:
 					ra, filp,
 					index, last_index - index);
 			page = find_get_page(mapping, index);
+
 			if (unlikely(page == NULL))
 				goto no_cached_page;
 		}
