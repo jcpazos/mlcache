@@ -1,2 +1,2 @@
 KERNEL=../src/build/arch/x86_64/boot/bzImage
-qemu-system-x86_64 -kernel $KERNEL  -drive file=disk.img,index=0,media=disk,format=raw -append "root=/dev/sda console=ttyS0" -nographic --enable-kvm -smp 2 -m 2G
+qemu-system-x86_64 -kernel $KERNEL  -drive file=disk.img,index=0,media=disk,format=raw -append "root=/dev/sda console=ttyS0" -nographic --enable-kvm -smp 2 -m 1G
