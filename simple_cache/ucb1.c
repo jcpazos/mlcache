@@ -2,6 +2,7 @@
 #include <math.h>
 #include <time.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include "simple_cache.c"
 
 struct UCB_struct{
@@ -14,12 +15,10 @@ struct UCB_struct{
 };
 
 
-int upperBound(int step, int numPlays) {
-	//indexing from 0
-	return integerSqrt(10000*(2*integerLog(step+1) / numPlays));
-}
 
-int integerSqrt(n) {
+int integerSqrt(int n) {
+	int smallCandidate;
+	int largeCandidate;
     if (n < 2) {
         return n;
     } else {
@@ -35,8 +34,30 @@ int integerSqrt(n) {
 }
 
 //TODO: finish this
-int integerLog(n) {
+// find the log base 2 of 32-bit v
+//might need to scale v up
+int integerLog(uint32_t v) {
+	int r;      // result goes here
 
+	static const int MultiplyDeBruijnBitPosition[32] = 
+	{
+	  0, 9, 1, 10, 13, 21, 2, 29, 11, 14, 16, 18, 22, 25, 3, 30,
+	  8, 12, 20, 28, 15, 17, 24, 7, 19, 27, 23, 6, 26, 5, 4, 31
+	};
+
+	v |= v >> 1; // first round down to one less than a power of 2 
+	v |= v >> 2;
+	v |= v >> 4;
+	v |= v >> 8;
+	v |= v >> 16;
+
+	return MultiplyDeBruijnBitPosition[(uint32_t)(v * 0x07C4ACDDU) >> 27];
+}
+
+
+int upperBound(int step, int numPlays) {
+	//indexing from 0
+	return integerSqrt(10000*(2*integerLog(step+1) / numPlays));
 }
 
 //TODO: this should take into account some kind of "popularity"
@@ -49,9 +70,10 @@ int pull(struct UCB_struct* ucb, struct Cache* cache) {
 	int action = -1;
 	//get action that maximizes gain.
 	//if training, just use best action overall
+	int i = 0;
 	if (cache == NULL) {
 		action = 0;
-		for (i=0;i<numActions;i++) {
+		for (i=0;i<ucb->numActions;i++) {
 			if (ucb->ucbs[i] > ucb->ucbs[action]) {
 			action = i;
 			}
@@ -74,8 +96,9 @@ int pull(struct UCB_struct* ucb, struct Cache* cache) {
 
 void updateUCB(struct UCB_struct* ucb) {
 	//TODO: do we update all actions regardless of not being in cache?
-	for (i=0; i<numActions;i++) {
-		ucb->ucbs[i] = -ucb->payoffSums[i] - upperBound(ucb->t, ucb->numPlays[i])*numPlays[i];
+	int i = 0;
+	for (i=0; i<ucb->numActions;i++) {
+		ucb->ucbs[i] = -ucb->payoffSums[i] - upperBound(ucb->t, ucb->numPlays[i])*ucb->numPlays[i];
 	}
 }
 //This function should be called after a cache hit, it does two things:
@@ -84,7 +107,7 @@ void updateUCB(struct UCB_struct* ucb) {
 void updateInCache(int actionToReward, struct Cache* cache) {
 	int i=0;
 	for (i=0;i<cache->cache_size;i++) {
-			int cacheBlock = cache->blocks_array[i]
+			int cacheBlock = cache->blocks_array[i];
 			if (actionToReward != cacheBlock) {
 				cache->theUCB->ucbs[cacheBlock] += reward(cacheBlock, 0, 0);
 			} else {
@@ -127,7 +150,7 @@ struct UCB_struct* ucb1(int numActions, int trials /*might want to pass function
 
 	printf("Probabilities are: [");
 	for (i=0; i<numActions;i++){
-		printf("%lf", newUCB->payoffSums[i]);
+		printf("%d", newUCB->payoffSums[i]);
 		if (i != newUCB->numActions - 1) {
 			printf(", ");
 		}

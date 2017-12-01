@@ -141,7 +141,7 @@ void writeToCacheUCB(int blockNo) {
 	cache->curr_size++;
 }
 
-struct UCB_struct* readFromCacheUCB(int blockNo) {
+int readFromCacheUCB(int blockNo) {
 	int toRead = findBlock(blockNo);
 	if (toRead == -1) {
 		//block to read isn't in cache, get it from memory
