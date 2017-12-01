@@ -1,32 +1,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "ucb1.h"
+#include "simple_cache.h"
 
-#define CACHE_SIZE 1000
 
-//Node for doubly-linked list
-struct Node  {
-	int blockNo;
-	struct Node* next;
-	struct Node* prev;
-};
 
-//Struct for cache
-struct Cache {
-    int hits;
-    int misses;
-    int reads;
-    int writes;
-    int cache_size;
-    int block_size;
-    int numLines;
-    int write_policy;
-    int curr_size;
-    struct Node* blocks;
-    int blocks_array[CACHE_SIZE];
-    struct UCB_struct* theUCB;
-};
+
+
 
 struct Cache* cache; //global cache
 struct Node* head; //global head of list
@@ -97,7 +77,7 @@ void writeToCache(int blockNo) {
 
 /*Functions for cache managing with UCB */
 //-----------------------------------------------------------------------------
-int findBlock(blockNo) {
+int findBlock(int blockNo) {
 	int i = 0;
 	for (i=0; i < cache->curr_size; i++) {
 		if (blockNo == cache->blocks_array[i]) {
@@ -110,7 +90,7 @@ int findBlock(blockNo) {
 int findEmptyLine() {
 	int i = 0;
 	for (i=0; i <cache->curr_size; i++) {
-		if (cache->bloc_array[i] == -1) {
+		if (cache->blocks_array[i] == -1) {
 			return i;
 		}
 	}

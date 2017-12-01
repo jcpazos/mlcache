@@ -3,18 +3,9 @@
 #include <time.h>
 #include <stdlib.h>
 #include <stdint.h>
-#include "simple_cache.c"
+#include "ucb1.h"
 
-struct UCB_struct{
-	int numActions;
-	int trials;
-	int t;
-	int* payoffSums;
-	int* numPlays;
-	int* ucbs;
-};
-
-
+#define SCALEUP 100
 
 int integerSqrt(int n) {
 	int smallCandidate;
@@ -57,13 +48,13 @@ int integerLog(uint32_t v) {
 
 int upperBound(int step, int numPlays) {
 	//indexing from 0
-	return integerSqrt(10000*(2*integerLog(step+1) / numPlays));
+	return integerSqrt(SCALEUP*SCALEUP*(2*integerLog(step+1) / numPlays));
 }
 
 //TODO: this should take into account some kind of "popularity"
 //for the page throughout the learning stage
 int reward(double choice, double t, int hit) {
-	return hit;
+	return SCALEUP*hit;
 }
 
 int pull(struct UCB_struct* ucb, struct Cache* cache) {
@@ -82,15 +73,15 @@ int pull(struct UCB_struct* ucb, struct Cache* cache) {
 	} else {
 		action = cache->blocks_array[0];
 		for (i=0;i<cache->cache_size;i++) {
-			if (cache->theUCB->ucbs[cache->blocks_array[i]] < cache->theUCB->ucbs[action]) {
+			if (cache->theUCB->ucbs[cache->blocks_array[i]] > cache->theUCB->ucbs[action]) {
 				action = cache->blocks_array[i];
 			}
 		}
 	}
-	int theReward = reward(action, ucb->t, 1);
-	ucb->numPlays[action]++;
+	int theReward = reward(action, ucb->t,1);
+	ucb->numPlays[action]+=SCALEUP;
 	ucb->payoffSums[action]+= theReward;
-	ucb->t++;
+	ucb->t+=SCALEUP;
 	return action;
 }
 
@@ -101,6 +92,7 @@ void updateUCB(struct UCB_struct* ucb) {
 		ucb->ucbs[i] = -ucb->payoffSums[i] - upperBound(ucb->t, ucb->numPlays[i])*ucb->numPlays[i];
 	}
 }
+
 //This function should be called after a cache hit, it does two things:
 //decrease weight of blocks in cache that weren't referenced
 //increase weight of block in cache that was referenced
@@ -109,18 +101,20 @@ void updateInCache(int actionToReward, struct Cache* cache) {
 	for (i=0;i<cache->cache_size;i++) {
 			int cacheBlock = cache->blocks_array[i];
 			if (actionToReward != cacheBlock) {
-				cache->theUCB->ucbs[cacheBlock] += reward(cacheBlock, 0, 0);
+				cache->theUCB->payoffSums[cacheBlock] += reward(cacheBlock, 0, -1);
 			} else {
 				cache->theUCB->payoffSums[actionToReward]+= reward(actionToReward, 0, 1);
-				cache->theUCB->numPlays[actionToReward]++;
-				cache->theUCB->t++;
+				//cache->theUCB->numPlays[actionToReward]+=SCALEUP;;
+				
 			}
+			cache->theUCB->t+=SCALEUP;
 	}
 	
 }
 
 //initialize the UCB
-struct UCB_struct* ucb1(int numActions, int trials /*might want to pass function pointer for reward in the future*/) {
+struct UCB_struct* ucb1(int numActions, int trials, struct Cache* cache /*might want to pass function pointer for reward in the future*/) {
+	trials+=numActions;
 	struct UCB_struct* newUCB = (struct UCB_struct*) malloc(sizeof(struct UCB_struct));
 	newUCB->numActions = numActions;
 	newUCB->trials = trials;
@@ -142,15 +136,17 @@ struct UCB_struct* ucb1(int numActions, int trials /*might want to pass function
 	}
 
 	newUCB->t = numActions;
+	cache->theUCB = newUCB;
 
-	while (newUCB->t<trials) {
+	while (newUCB->t<trials*SCALEUP) {
+		updateInCache(0, cache);
 		updateUCB(newUCB);
-		pull(newUCB, 0);
+		//pull(newUCB, 0);
 	}
 
 	printf("Probabilities are: [");
 	for (i=0; i<numActions;i++){
-		printf("%d", newUCB->payoffSums[i]);
+		printf("%d", newUCB->ucbs[i]);
 		if (i != newUCB->numActions - 1) {
 			printf(", ");
 		}
@@ -158,7 +154,7 @@ struct UCB_struct* ucb1(int numActions, int trials /*might want to pass function
 	printf("]\n");
 }
 
-/*
+
 int main(int argc, char *argv[]) {
 	if (argc != 2) {
 		fprintf(stderr,"ucb1:  usage:  trials\n");
@@ -166,6 +162,58 @@ int main(int argc, char *argv[]) {
 	}
 	int trials = atoi(argv[1]);
 	srand(time(NULL)); 
-	ucb1(10, trials);
+
+
+	struct Cache* cache = (struct Cache*)malloc(sizeof(struct Cache));
+	cache->hits = 0;
+	cache->misses = 0;
+	cache->reads = 0;
+	cache->writes = 0;
+	cache->cache_size = CACHE_SIZE;
+	cache->curr_size = 0;
+	//cache->blocks = head;
+
+	int i=0;
+	for (i=0; i < CACHE_SIZE; i++) {
+		cache->blocks_array[i] = i;
+	}
+	/*int* sqrtarr = (int*) malloc(100*sizeof(int));
+	int* logarr = (int*) malloc(100*sizeof(int));
+
+	int i = 0;
+	printf("logarr\n");
+	printf("[");
+	for (i=0; i<100; i++) {
+		logarr[i] = integerLog(10000*i);
+		printf("%d, ", logarr[i]);
+
+	}
+	printf("]\n");
+
+	printf("sqrtarr\n");
+	printf("[");
+	for (i=0; i<100; i++) {
+		sqrtarr[i] = integerSqrt(10000*i);
+		printf("%d, ", sqrtarr[i]);
+
+	}
+	printf("]\n");
+
+	int logcoll = 0;
+	for (i=1; i<100; i++) {
+		if (logarr[i-1] == logarr[i]) {
+			logcoll++;
+		}
+	}
+
+	int sqrtcoll = 0;
+	for (i=1; i<100; i++) {
+		if (logarr[i-1] == logarr[i]) {
+			logarr++;
+		}
+	}
+
+	printf("log collisions: %d, sqrt collisions: %d\n", logcoll, sqrtcoll);*/
+	ucb1(1000, trials, cache);
 	return 0;
-}*/
+}
