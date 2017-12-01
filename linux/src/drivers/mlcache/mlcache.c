@@ -22,7 +22,7 @@
 struct mlcache_event {
 		pid_t requester;
 		off_t index;
-		int type;
+		char type;
 };
 
 static long mlcache_pid[MAX_WATCH_LIST] = { MLCACHE_DISABLED };
@@ -142,7 +142,7 @@ static void mlcache_pageget(void *data, pgoff_t off, int type, pid_t pid) {
 				event.index = off;
 				event.type = type;
 
-				if (num_events <= MAX_EVENTS)
+				if (num_events < MAX_EVENTS)
 						memcpy(&events[num_events++], &event, sizeof(struct mlcache_event));
 		}
 
