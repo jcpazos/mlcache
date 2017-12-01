@@ -104,7 +104,7 @@ int findBlock(blockNo) {
 			return i;
 		}
 	}
-	return 0;
+	return -1;
 }
 
 int findEmptyLine() {
@@ -121,6 +121,7 @@ void insertUCB(int blockNo, int idx) {
 }
 
 int removeFromCacheUCB() {
+	//pull arm, and find block referenced by chosen action
 	int idx = findBlock(pull(cache->theUCB, cache));
 	cache->blocks_array[idx] = -1;
 	return idx;
@@ -141,17 +142,18 @@ void writeToCacheUCB(int blockNo) {
 }
 
 struct UCB_struct* readFromCacheUCB(int blockNo) {
-	//TODO: should we also reward blocks that stay in the cache at each read?
 	int toRead = findBlock(blockNo);
-	if (toRead == NULL) {
+	if (toRead == -1) {
 		//block to read isn't in cache, get it from memory
-		//TODO: reward last page removed
+		//penalize blocks in cache
+		updateInCache(-1, cache);
 		cache->misses++;
 		writeToCacheUCB(blockNo);
 		cache->writes++;
 	} else {
 		//block to read is in cache
-		//TODO: reward all pages in cache
+		//reward referenced block, penalize others
+		updateInCache(cache->blocks_array[toRead], cache);
 		cache->hits++;
 	}
 	cache->reads++;

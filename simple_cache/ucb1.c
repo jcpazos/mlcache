@@ -8,33 +8,44 @@ struct UCB_struct{
 	int numActions;
 	int trials;
 	int t;
-	double* payoffSums;
+	int* payoffSums;
 	int* numPlays;
-	double* ucbs;
+	int* ucbs;
 };
 
 
-double upperBound(int step, int numPlays) {
+int upperBound(int step, int numPlays) {
 	//indexing from 0
-	return sqrt(2*log(step+1) / numPlays);
+	return integerSqrt(10000*(2*integerLog(step+1) / numPlays));
 }
 
+int integerSqrt(n) {
+    if (n < 2) {
+        return n;
+    } else {
+        smallCandidate = integerSqrt(n >> 2) << 1;
+        largeCandidate = smallCandidate + 1;
+        if (largeCandidate*largeCandidate > n) {
+            return smallCandidate;
+        } else {
+            return largeCandidate;
+        }
+    }
+
+}
+
+//TODO: finish this
+int integerLog(n) {
+
+}
 
 //TODO: this should take into account some kind of "popularity"
 //for the page throughout the learning stage
-double reward(double choice, double t) {
-	//TODO: change this to be based on cache hit or miss.
-	if (((double)rand() / (double)RAND_MAX) <= 0.5) {
-		return -1;
-	}
-	else return 1;
+int reward(double choice, double t, int hit) {
+	return hit;
 }
 
 int pull(struct UCB_struct* ucb, struct Cache* cache) {
-	//TODO: do we update all actions regardless of not being in cache?
-	for (i=0; i<numActions;i++) {
-		ucb->ucbs[i] = ucb->payoffSums[i]/ucb->numPlays[i] + upperBound(ucb->t, ucb->numPlays[i]);
-	}
 	int action = -1;
 	//get action that maximizes gain.
 	//if training, just use best action overall
@@ -49,16 +60,40 @@ int pull(struct UCB_struct* ucb, struct Cache* cache) {
 	} else {
 		action = cache->blocks_array[0];
 		for (i=0;i<cache->cache_size;i++) {
-			if (ucb->ucbs[cache->blocks_array[i]] > ucb->ucbs[action]) {
+			if (cache->theUCB->ucbs[cache->blocks_array[i]] < cache->theUCB->ucbs[action]) {
 				action = cache->blocks_array[i];
 			}
 		}
 	}
-	double theReward = reward(action, ucb->t);
+	int theReward = reward(action, ucb->t, 1);
 	ucb->numPlays[action]++;
 	ucb->payoffSums[action]+= theReward;
 	ucb->t++;
 	return action;
+}
+
+void updateUCB(struct UCB_struct* ucb) {
+	//TODO: do we update all actions regardless of not being in cache?
+	for (i=0; i<numActions;i++) {
+		ucb->ucbs[i] = -ucb->payoffSums[i] - upperBound(ucb->t, ucb->numPlays[i])*numPlays[i];
+	}
+}
+//This function should be called after a cache hit, it does two things:
+//decrease weight of blocks in cache that weren't referenced
+//increase weight of block in cache that was referenced
+void updateInCache(int actionToReward, struct Cache* cache) {
+	int i=0;
+	for (i=0;i<cache->cache_size;i++) {
+			int cacheBlock = cache->blocks_array[i]
+			if (actionToReward != cacheBlock) {
+				cache->theUCB->ucbs[cacheBlock] += reward(cacheBlock, 0, 0);
+			} else {
+				cache->theUCB->payoffSums[actionToReward]+= reward(actionToReward, 0, 1);
+				cache->theUCB->numPlays[actionToReward]++;
+				cache->theUCB->t++;
+			}
+	}
+	
 }
 
 //initialize the UCB
@@ -66,9 +101,9 @@ struct UCB_struct* ucb1(int numActions, int trials /*might want to pass function
 	struct UCB_struct* newUCB = (struct UCB_struct*) malloc(sizeof(struct UCB_struct));
 	newUCB->numActions = numActions;
 	newUCB->trials = trials;
-	newUCB->payoffSums = (double*) malloc(numActions*sizeof(double));
+	newUCB->payoffSums = (int*) malloc(numActions*sizeof(int));
 	newUCB->numPlays = (int*) malloc(numActions*sizeof(int));
-	newUCB->ucbs = (double*) malloc(numActions*sizeof(double));
+	newUCB->ucbs = (int*) malloc(numActions*sizeof(int));
 
 	int i = 0;
 	for (i=0;i<newUCB->numActions;i++) {
@@ -80,13 +115,14 @@ struct UCB_struct* ucb1(int numActions, int trials /*might want to pass function
 	newUCB->t = 0;
 	//initialize empirical sums
 	for (newUCB->t=0;i<numActions;newUCB->t++) {
-		newUCB->payoffSums[newUCB->t] = reward(newUCB->t,newUCB->t);
+		newUCB->payoffSums[newUCB->t] = 0;
 	}
 
 	newUCB->t = numActions;
 
 	while (newUCB->t<trials) {
-		pull(newUCB);
+		updateUCB(newUCB);
+		pull(newUCB, 0);
 	}
 
 	printf("Probabilities are: [");
