@@ -1,6 +1,7 @@
 #include <linux/module.h>
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
+#include <linux/slab.h>
 
 #include <trace/events/mlcache.h>
 
@@ -15,10 +16,66 @@
 #define MAX_WRITE_LEN (MAX_PID_LEN * MAX_WATCH_LIST) /* write at most 100 bytes at a time */
 #define MLCACHE_PID_SEP (',') /* PID separator when defining which processes to watch */
 #define MLCACHE_MODE_SEP (':')
+#define MAX_EVENTS (100000)
+#define DISABLE_CMD ("disable")
+
+struct mlcache_event {
+		pid_t requester;
+		off_t index;
+		int type;
+};
 
 static long mlcache_pid[MAX_WATCH_LIST] = { MLCACHE_DISABLED };
 static int mlcache_cnt = 0;
 static int mlcache_mode = -1;
+static struct proc_dir_entry *root;
+static struct mlcache_event *events;
+static long num_events = 0;
+
+static int mlcache_hist_show(struct seq_file *m, void *v) {
+		int i;
+		struct mlcache_event e;
+		char *desc;
+
+		for (i = 0; i < num_events; i++) {
+				e = events[i];
+				desc = e.type == MLCACHE_HIT ? "hit" : "miss";
+
+				seq_printf(m, "Requester: %ld | Index: %ld | Result: %s\n", (long) e.requester, (long) e.index, desc);
+		}
+
+		seq_printf(m, "%ld events.\n", num_events);
+
+		return 0;
+}
+
+static int hist_open(struct inode *inode, struct	file *filp) {
+		return single_open(filp, mlcache_hist_show, PDE_DATA(inode));
+}
+
+static ssize_t mlcache_hist_write(struct file * m, const char *buf, size_t len, loff_t *off) {
+		return len;
+}
+
+static const struct file_operations hist_fops = {
+		.owner = THIS_MODULE,
+		.open = hist_open,
+		.read = seq_read,
+		.write = mlcache_hist_write,
+		.llseek = seq_lseek,
+		.release = single_release,
+};
+
+static void create_proc_entries(void) {
+		char *name = kmalloc(MAX_PID_LEN, GFP_KERNEL);
+
+		if (mlcache_mode == LIST_MODE) {
+				/* not supported */
+		} else if (mlcache_mode == TREE_MODE) {
+				snprintf(name, MAX_PID_LEN, "%ld", mlcache_pid[0]);
+				proc_create_data(name, 0444, root, &hist_fops, name);
+		}
+}
 
 static bool list_match(void) {
 		int i;
@@ -80,13 +137,18 @@ static void mlcache_pageget(void *data, pgoff_t off, int type, pid_t pid) {
 				match = false;
 
 		if (match) {
-				char *res = type == MLCACHE_HIT ? "hit" : "miss";
-				printk(KERN_INFO "Requester: %ld | Index: %ld | Result: %s\n", (long) pid, (long) off, res);
+				struct mlcache_event event;
+				event.requester = pid;
+				event.index = off;
+				event.type = type;
+
+				if (num_events <= MAX_EVENTS)
+						memcpy(&events[num_events++], &event, sizeof(struct mlcache_event));
 		}
 
 }
 
-static int mlcache_show(struct seq_file *m, void *v) {
+static int mlcache_filter_show(struct seq_file *m, void *v) {
 		if (mlcache_cnt == 0) {
 				seq_printf(m, "MLCache is currently not enabled.\n");
 		} else {
@@ -177,7 +239,21 @@ static ssize_t parse_tree(const char *buf, size_t len) {
 		return len;
 }
 
-static ssize_t mlcache_write(struct file * m, const char *buf, size_t len, loff_t *off) {
+static void mlcache_disable(void) {
+		char name[MAX_PID_LEN];
+
+		mlcache_cnt = 0;
+		num_events = 0;
+		snprintf(name, MAX_PID_LEN, "%ld", mlcache_pid[0]);
+
+		if (mlcache_mode == LIST_MODE) {
+				/* not supported */
+		} else if (mlcache_mode == TREE_MODE) {
+				remove_proc_entry(name, root);
+		}
+}
+
+static ssize_t mlcache_filter_write(struct file * m, const char *buf, size_t len, loff_t *off) {
 		int i, j, ret;
 		int max_mode_len = 10;
 		char mode[max_mode_len];
@@ -185,8 +261,12 @@ static ssize_t mlcache_write(struct file * m, const char *buf, size_t len, loff_
 		if (len > MAX_WRITE_LEN)
 				return -EINVAL;
 
+		if (!strncmp(buf, DISABLE_CMD, strlen(DISABLE_CMD))) {
+				mlcache_disable();
+				return len;
+		}
+
 		j = 0;
-		mlcache_cnt = 0;
 		for (i = 0; i < len && i < max_mode_len; i++) {
 				if (buf[i] == MLCACHE_MODE_SEP)
 						break;
@@ -202,27 +282,37 @@ static ssize_t mlcache_write(struct file * m, const char *buf, size_t len, loff_
 		else
 				ret = -EINVAL;
 
-		if (ret > 0)
+		if (ret > 0) {
+				create_proc_entries();
 				return len;
+		}
 
 		return ret;
 }
 
-static int mlcache_open(struct inode *inode, struct	file *file) {
-		return single_open(file, mlcache_show, NULL);
+static int filter_open(struct inode *inode, struct	file *file) {
+		return single_open(file, mlcache_filter_show, NULL);
 }
 
-static const struct file_operations mlcache_fops = {
+static const struct file_operations filter_fops = {
 		.owner = THIS_MODULE,
-		.open = mlcache_open,
+		.open = filter_open,
 		.read = seq_read,
-		.write = mlcache_write,
+		.write = mlcache_filter_write,
 		.llseek = seq_lseek,
 		.release = single_release,
 };
 
 static int __init mlcache_init(void) {
-		proc_create("mlcache", S_IRWXUGO, NULL, &mlcache_fops);
+		root = proc_mkdir("mlcache", NULL);
+		proc_create("filter", 0666, root, &filter_fops);
+
+		events = kmalloc(MAX_EVENTS * sizeof(struct mlcache_event), GFP_KERNEL);
+		if (events == NULL) {
+				printk(KERN_WARNING "Could not allocate memory for events");
+				return -ENOMEM;
+		}
+
 		register_trace_mlcache_event(mlcache_pageget, NULL);
 		return 0;
 }
@@ -231,6 +321,9 @@ static void __exit mlcache_exit(void) {
 		remove_proc_entry("mlcache", NULL);
 		unregister_trace_mlcache_event(mlcache_pageget, NULL);
 		tracepoint_synchronize_unregister();
+
+		if (events != NULL)
+				kfree(events);
 }
 
 MODULE_LICENSE("GPL");
