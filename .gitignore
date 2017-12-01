@@ -8,3 +8,8 @@
 *.cut
 *.synctex.gz
 .DS_Store
+
+linux/src/cscope.out
+linux/src/cscope.out.po
+linux/src/tags
+linux/src/build
