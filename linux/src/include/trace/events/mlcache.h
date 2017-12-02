@@ -10,8 +10,8 @@
 #define MLCACHE_MISS (1)
 
 DECLARE_TRACE(mlcache_event,
-				TP_PROTO(pgoff_t offset, int type, pid_t pid),
-				TP_ARGS(offset, type, pid));
+				TP_PROTO(pgoff_t offset, pid_t pid, struct page *page, struct address_space *mapping),
+				TP_ARGS(offset, pid, page, mapping));
 
 #endif /* _TRACE_MLCACHE_H */
 

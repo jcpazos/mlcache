@@ -1977,7 +1977,7 @@ find_page:
 		}
 
 		page = find_get_page(mapping, index);
-		trace_mlcache_event(index, page ? MLCACHE_HIT : MLCACHE_MISS, current->pid);
+		trace_mlcache_event(index, current->pid, page, mapping);
 
 		if (!page) {
 			if (iocb->ki_flags & IOCB_NOWAIT)

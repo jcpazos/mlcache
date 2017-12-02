@@ -18,6 +18,7 @@
 #define MLCACHE_MODE_SEP (':')
 #define MAX_EVENTS (100000)
 #define DISABLE_CMD ("disable")
+#define MLCACHE_SCALE (100)
 
 struct mlcache_event {
 		pid_t requester;
@@ -31,6 +32,38 @@ static int mlcache_mode = -1;
 static struct proc_dir_entry *root;
 static struct mlcache_event *events;
 static long num_events = 0;
+
+static void update_cache_scores(pgoff_t index, struct page *page, struct address_space *mapping) {
+		void **slot;
+		struct radix_tree_iter iter;
+
+		if (page)
+				page->mlcache_weight += MLCACHE_SCALE;
+
+		rcu_read_lock();
+
+		radix_tree_for_each_slot(slot, &mapping->page_tree, &iter, 0) {
+			struct page *p;
+
+			p = radix_tree_deref_slot(slot);
+			if (unlikely(!p))
+				continue;
+
+			if (radix_tree_exception(p)) {
+				if (radix_tree_deref_retry(p)) {
+					slot = radix_tree_iter_retry(&iter);
+					continue;
+				}
+			}
+
+			if (page != NULL && p == page)
+					continue;
+
+			p->mlcache_weight -= MLCACHE_SCALE;
+		}
+
+		rcu_read_unlock();
+}
 
 static int mlcache_hist_show(struct seq_file *m, void *v) {
 		int i;
@@ -122,7 +155,7 @@ static bool tree_match(void) {
 
 }
 
-static void mlcache_pageget(void *data, pgoff_t off, int type, pid_t pid) {
+static void mlcache_pageget(void *data, pgoff_t off, pid_t pid, struct page *page, struct address_space *mapping) {
 		bool match;
 
 		if (mlcache_cnt == 0)
@@ -140,7 +173,9 @@ static void mlcache_pageget(void *data, pgoff_t off, int type, pid_t pid) {
 				struct mlcache_event event;
 				event.requester = pid;
 				event.index = off;
-				event.type = type;
+				event.type = page ? MLCACHE_HIT : MLCACHE_MISS;
+
+				update_cache_scores(off, page, mapping);
 
 				if (num_events < MAX_EVENTS)
 						memcpy(&events[num_events++], &event, sizeof(struct mlcache_event));
