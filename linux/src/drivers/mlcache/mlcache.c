@@ -33,14 +33,21 @@ static struct proc_dir_entry *root;
 static struct mlcache_event *events;
 static long num_events = 0;
 
-static void update_cache_scores(pgoff_t index, struct page *page, struct address_space *mapping) {
+static void update_cache_scores(pgoff_t index, struct page *page, struct address_space *mapping, bool hit) {
 		void **slot;
 		struct radix_tree_iter iter;
 
-		if (page)
+		if (hit)
 				page->mlcache_weight += MLCACHE_SCALE;
 
 		rcu_read_lock();
+
+		if (mapping->mlcache_ucb == NULL) {
+				mapping->mlcache_ucb = kmalloc(mapping->nrpages * sizeof(long), GFP_KERNEL);
+
+				if (mapping->mlcache_ucb == NULL)
+						printk(KERN_INFO "ERR: Failed to allocate UCB array\n");
+		}
 
 		radix_tree_for_each_slot(slot, &mapping->page_tree, &iter, 0) {
 			struct page *p;
@@ -56,7 +63,7 @@ static void update_cache_scores(pgoff_t index, struct page *page, struct address
 				}
 			}
 
-			if (page != NULL && p == page)
+			if (p == page)
 					continue;
 
 			p->mlcache_weight -= MLCACHE_SCALE;
@@ -155,10 +162,13 @@ static bool tree_match(void) {
 
 }
 
-static void mlcache_pageget(void *data, pgoff_t off, pid_t pid, struct page *page, struct address_space *mapping) {
+static void mlcache_pageget(void *data, pgoff_t off, pid_t pid, struct page *page, struct address_space *mapping, bool hit) {
 		bool match;
 
 		if (mlcache_cnt == 0)
+				return;
+
+		if (page == NULL)
 				return;
 
 		if (mlcache_mode == LIST_MODE)
@@ -175,7 +185,7 @@ static void mlcache_pageget(void *data, pgoff_t off, pid_t pid, struct page *pag
 				event.index = off;
 				event.type = page ? MLCACHE_HIT : MLCACHE_MISS;
 
-				update_cache_scores(off, page, mapping);
+				update_cache_scores(off, page, mapping, hit);
 
 				if (num_events < MAX_EVENTS)
 						memcpy(&events[num_events++], &event, sizeof(struct mlcache_event));

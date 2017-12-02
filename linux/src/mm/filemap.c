@@ -1945,6 +1945,7 @@ static ssize_t generic_file_buffered_read(struct kiocb *iocb,
 	struct address_space *mapping = filp->f_mapping;
 	struct inode *inode = mapping->host;
 	struct file_ra_state *ra = &filp->f_ra;
+	struct page *page = NULL;
 	loff_t *ppos = &iocb->ki_pos;
 	pgoff_t index;
 	pgoff_t last_index;
@@ -1952,6 +1953,7 @@ static ssize_t generic_file_buffered_read(struct kiocb *iocb,
 	unsigned long offset;      /* offset into pagecache page */
 	unsigned int prev_offset;
 	int error = 0;
+	bool hit = false;
 
 	if (unlikely(*ppos >= inode->i_sb->s_maxbytes))
 		return 0;
@@ -1964,7 +1966,6 @@ static ssize_t generic_file_buffered_read(struct kiocb *iocb,
 	offset = *ppos & ~PAGE_MASK;
 
 	for (;;) {
-		struct page *page;
 		pgoff_t end_index;
 		loff_t isize;
 		unsigned long nr, ret;
@@ -1977,7 +1978,7 @@ find_page:
 		}
 
 		page = find_get_page(mapping, index);
-		trace_mlcache_event(index, current->pid, page, mapping);
+		hit = (page != NULL);
 
 		if (!page) {
 			if (iocb->ki_flags & IOCB_NOWAIT)
@@ -2169,6 +2170,7 @@ no_cached_page:
 			error = -ENOMEM;
 			goto out;
 		}
+
 		error = add_to_page_cache_lru(page, mapping, index,
 				mapping_gfp_constraint(mapping, GFP_KERNEL));
 		if (error) {
@@ -2191,6 +2193,7 @@ out:
 
 	*ppos = ((loff_t)index << PAGE_SHIFT) + offset;
 	file_accessed(filp);
+	trace_mlcache_event(index, current->pid, page, mapping, hit);
 	return written ? written : error;
 }
 
