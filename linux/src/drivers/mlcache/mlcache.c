@@ -47,6 +47,8 @@ static void update_cache_scores(pgoff_t index, struct page *page, struct address
 
 				if (mapping->mlcache_ucb == NULL)
 						printk(KERN_INFO "ERR: Failed to allocate UCB array\n");
+				else
+						mapping->mlcache_ucb_state = MLCACHE_UCB_ALLOC;
 		}
 
 		radix_tree_for_each_slot(slot, &mapping->page_tree, &iter, 0) {
@@ -57,13 +59,16 @@ static void update_cache_scores(pgoff_t index, struct page *page, struct address
 				continue;
 
 			if (radix_tree_exception(p)) {
-				if (radix_tree_deref_retry(p)) {
-					slot = radix_tree_iter_retry(&iter);
+					if (radix_tree_deref_retry(p))
+							slot = radix_tree_iter_retry(&iter);
+
 					continue;
-				}
 			}
 
 			if (p == page)
+					continue;
+
+			if (p->mapping == NULL)
 					continue;
 
 			p->mlcache_weight -= MLCACHE_SCALE;
@@ -173,9 +178,8 @@ static void mlcache_pageget(void *data, pgoff_t off, pid_t pid, struct page *pag
 
 		if (mlcache_mode == LIST_MODE)
 				match = list_match();
-		else if (mlcache_mode == TREE_MODE) {
+		else if (mlcache_mode == TREE_MODE)
 				match = tree_match();
-		}
 		else
 				match = false;
 
