@@ -16,22 +16,15 @@
 #define MAX_WRITE_LEN (MAX_PID_LEN * MAX_WATCH_LIST) /* write at most 100 bytes at a time */
 #define MLCACHE_PID_SEP (',') /* PID separator when defining which processes to watch */
 #define MLCACHE_MODE_SEP (':')
-#define MAX_EVENTS (100000)
 #define DISABLE_CMD ("disable")
 #define MLCACHE_SCALE (100)
-
-struct mlcache_event {
-		pid_t requester;
-		off_t index;
-		char type;
-};
 
 static long mlcache_pid[MAX_WATCH_LIST] = { MLCACHE_DISABLED };
 static int mlcache_cnt = 0;
 static int mlcache_mode = -1;
 static struct proc_dir_entry *root;
-static struct mlcache_event *events;
-static long num_events = 0;
+static unsigned long hits;
+static unsigned long misses;
 
 static void update_cache_scores(pgoff_t index, struct page *page, struct address_space *mapping, bool hit) {
 		void **slot;
@@ -78,19 +71,7 @@ static void update_cache_scores(pgoff_t index, struct page *page, struct address
 }
 
 static int mlcache_hist_show(struct seq_file *m, void *v) {
-		int i;
-		struct mlcache_event e;
-		char *desc;
-
-		for (i = 0; i < num_events; i++) {
-				e = events[i];
-				desc = e.type == MLCACHE_HIT ? "hit" : "miss";
-
-				seq_printf(m, "Requester: %ld | Index: %ld | Result: %s\n", (long) e.requester, (long) e.index, desc);
-		}
-
-		seq_printf(m, "%ld events.\n", num_events);
-
+		seq_printf(m, "Hits: %ld | Misses: %ld\n", hits, misses);
 		return 0;
 }
 
@@ -184,15 +165,12 @@ static void mlcache_pageget(void *data, pgoff_t off, pid_t pid, struct page *pag
 				match = false;
 
 		if (match) {
-				struct mlcache_event event;
-				event.requester = pid;
-				event.index = off;
-				event.type = page ? MLCACHE_HIT : MLCACHE_MISS;
+				if (hit)
+						hits++;
+				else
+						misses++;
 
 				update_cache_scores(off, page, mapping, hit);
-
-				if (num_events < MAX_EVENTS)
-						memcpy(&events[num_events++], &event, sizeof(struct mlcache_event));
 		}
 
 }
@@ -292,7 +270,7 @@ static void mlcache_disable(void) {
 		char name[MAX_PID_LEN];
 
 		mlcache_cnt = 0;
-		num_events = 0;
+		hits = misses = 0;
 		snprintf(name, MAX_PID_LEN, "%ld", mlcache_pid[0]);
 
 		if (mlcache_mode == LIST_MODE) {
@@ -356,12 +334,7 @@ static int __init mlcache_init(void) {
 		root = proc_mkdir("mlcache", NULL);
 		proc_create("filter", 0666, root, &filter_fops);
 
-		events = kmalloc(MAX_EVENTS * sizeof(struct mlcache_event), GFP_KERNEL);
-		if (events == NULL) {
-				printk(KERN_WARNING "Could not allocate memory for events");
-				return -ENOMEM;
-		}
-
+		hits = misses = 0;
 		register_trace_mlcache_event(mlcache_pageget, NULL);
 		return 0;
 }
@@ -370,9 +343,6 @@ static void __exit mlcache_exit(void) {
 		remove_proc_entry("mlcache", NULL);
 		unregister_trace_mlcache_event(mlcache_pageget, NULL);
 		tracepoint_synchronize_unregister();
-
-		if (events != NULL)
-				kfree(events);
 }
 
 MODULE_LICENSE("GPL");
