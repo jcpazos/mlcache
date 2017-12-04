@@ -2,6 +2,8 @@
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
 #include <linux/slab.h>
+#include <linux/log2.h>
+#include <linux/kernel.h>
 
 #include <trace/events/mlcache.h>
 
@@ -25,12 +27,22 @@ static int mlcache_mode = -1;
 static struct proc_dir_entry *root;
 static unsigned long hits;
 static unsigned long misses;
+static unsigned long t;
+
+static unsigned long upperBound(int step, int numPlays) {
+	//indexing from 0
+	if (step !=0 && numPlays != 0) {
+		return int_sqrt(MLCACHE_SCALE*MLCACHE_SCALE*2*ilog2(MLCACHE_SCALE*MLCACHE_SCALE*(step+1)) / numPlays);
+	}
+	return 0;
+}
 
 static void update_page_score(struct page *page, long by) {
 		if (!page->mapping)
 				return;
+		page->mlcache_score -= by;
+		page->mlcache_score = page->mlcache_score + upperBound(t-1, page->mlcache_plays) - upperBound(t, page->mlcache_plays)*page->mlcache_plays;
 
-		page->mlcache_score += by;
 }
 
 static void update_cache_scores(pgoff_t index, struct page *page, struct address_space *mapping, bool hit) {
@@ -168,6 +180,7 @@ static void mlcache_pageget(void *data, pgoff_t off, pid_t pid, struct page *pag
 				else
 						misses++;
 
+				t++;
 				update_cache_scores(off, page, mapping, hit);
 		}
 
@@ -332,7 +345,7 @@ static int __init mlcache_init(void) {
 		root = proc_mkdir("mlcache", NULL);
 		proc_create("filter", 0666, root, &filter_fops);
 
-		hits = misses = 0;
+		hits = misses = t = 0;
 		register_trace_mlcache_event(mlcache_pageget, NULL);
 		return 0;
 }
