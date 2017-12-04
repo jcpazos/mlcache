@@ -37,6 +37,7 @@ struct mlcache_ucb_item {
 
 static void update_weight(struct page *page, long by) {
 		struct mlcache_ucb_item *item;
+		struct mlcache_ucb_item new_item;
 		bool is_new_item;
 
 		struct address_space *mapping = page->mapping;
@@ -47,15 +48,10 @@ static void update_weight(struct page *page, long by) {
 		is_new_item = (item == NULL || item->magic != MLCACHE_MAGIC);
 		if (is_new_item) {
 				/* page is not in the UCB array - create it. */
-				item = kmalloc(sizeof(struct mlcache_ucb_item), GFP_KERNEL);
-				if (item == NULL) {
-						printk(KERN_INFO "Failed to allocate new UCB item at index %ld\n", (long) page->index);
-						return;
-				}
-
-				item->weight = 0;
-				item->plays = 0;
-				item->magic = MLCACHE_MAGIC;
+				new_item.weight = 0;
+				new_item.plays = 0;
+				new_item.magic = MLCACHE_MAGIC;
+				item = &new_item;
 		}
 
 		item->weight += by;
