@@ -1516,26 +1516,22 @@ static unsigned long isolate_lru_pages(unsigned long nr_to_scan,
 	unsigned long scan, total_scan, nr_pages;
 	LIST_HEAD(pages_skipped);
 
-	//TODO: set page to be page with highest weight
-	struct list_head *tmp;
-	struct page *page = lru_to_page(src);
-	struct page *tmp_page;
+	struct list_head *pos;
+	struct page *page;
+	struct page *curr_page;
 	scan = 0;
 
 	for (total_scan = 0;
 	     scan < nr_to_scan && nr_taken < nr_to_scan && !list_empty(src);
 	     total_scan++) {
 
-		printk(KERN_INFO "Iterating through lru list starting with page at address %p, and score %ld\n", page, page->mlcache_score);
-		list_for_each(tmp, src) {
-			tmp_page = lru_to_page(tmp);
-			if (tmp_page->mlcache_score > page->mlcache_score) {
-				printk(KERN_INFO "Updating page with %p, and score %ld\n", page, page->mlcache_score);
-				page = tmp_page;
-			}
+		page = lru_to_page(src);
+
+		list_for_each(pos, src) {
+			curr_page = lru_to_page(pos);
+			if (curr_page && PageLRU(curr_page) && curr_page->mlcache_score > page->mlcache_score)
+				page = curr_page;
 		};
-		
-		//prefetchw_prev_lru_page(page, src, flags);
 
 		VM_BUG_ON_PAGE(!PageLRU(page), page);
 
