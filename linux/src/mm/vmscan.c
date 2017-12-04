@@ -740,10 +740,11 @@ static int __remove_mapping(struct address_space *mapping, struct page *page,
 		 * same page_tree.
 		 */
 		if (reclaimed && page_is_file_cache(page) &&
-		    !mapping_exiting(mapping) && !dax_mapping(mapping))
+		    !mapping_exiting(mapping) && !dax_mapping(mapping)) {
 
-			page->mlcache_plays++;
-			shadow = workingset_eviction(mapping, page);
+				page->mlcache_plays++;
+				shadow = workingset_eviction(mapping, page);
+		}
 		__delete_from_page_cache(page, shadow);
 		spin_unlock_irqrestore(&mapping->tree_lock, flags);
 
