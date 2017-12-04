@@ -2,7 +2,6 @@
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
 #include <linux/slab.h>
-#include <linux/flex_array.h>
 
 #include <trace/events/mlcache.h>
 
@@ -29,54 +28,19 @@ static struct proc_dir_entry *root;
 static unsigned long hits;
 static unsigned long misses;
 
-struct mlcache_ucb_item {
-		long weight;
-		unsigned int plays;
-		int magic;
-};
-
-static void update_weight(struct page *page, long by) {
-		struct mlcache_ucb_item *item;
-		struct mlcache_ucb_item new_item;
-		bool is_new_item;
-
-		struct address_space *mapping = page->mapping;
-		if (!mapping || !mapping->ucb)
+static void update_page_score(struct page *page, long by) {
+		if (!page->mapping)
 				return;
 
-		item = flex_array_get(mapping->ucb, page->index);
-		is_new_item = (item == NULL || item->magic != MLCACHE_MAGIC);
-		if (is_new_item) {
-				/* page is not in the UCB array - create it. */
-				new_item.weight = 0;
-				new_item.plays = 0;
-				new_item.magic = MLCACHE_MAGIC;
-				item = &new_item;
-		}
-
-		item->weight += by;
-
-		if (flex_array_put(mapping->ucb, page->index, item, 0) != 0)
-				printk(KERN_INFO "Failed to insert UCB item on index %ld (%s, %ld:%d)\n", page->index, is_new_item ? "new-item" : "existing-item", item->weight, item->plays);
+		page->mlcache_score += by;
 }
 
 static void update_cache_scores(pgoff_t index, struct page *page, struct address_space *mapping, bool hit) {
 		void **slot;
 		struct radix_tree_iter iter;
 
-		if (page->index >= MLCACHE_MAX_SUPPORTED_PAGES)
-				return;
-
-		if (mapping && mapping->ucb == NULL) {
-				mapping->ucb = flex_array_alloc(sizeof(struct mlcache_ucb_item), MLCACHE_MAX_SUPPORTED_PAGES, GFP_KERNEL);
-				if (mapping->ucb == NULL) {
-						printk(KERN_INFO "ERR: Failed to allocate UCB flex array\n");
-						return;
-				}
-		}
-
 		if (hit)
-				update_weight(page, MLCACHE_SCALE);
+				update_page_score(page, MLCACHE_SCALE);
 
 		rcu_read_lock();
 
@@ -100,10 +64,7 @@ static void update_cache_scores(pgoff_t index, struct page *page, struct address
 			if (p->mapping == NULL)
 					continue;
 
-			if (p->index >= MLCACHE_MAX_SUPPORTED_PAGES)
-				continue;
-
-			update_weight(p, -MLCACHE_SCALE);
+			update_page_score(p, -MLCACHE_SCALE);
 		}
 
 		rcu_read_unlock();

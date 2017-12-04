@@ -16,6 +16,8 @@
 #include <linux/fs.h>
 #include <linux/mm.h>
 
+#define MLCACHE_SCORE_SHIFT (sizeof(unsigned int) * 8)
+
 /*
  *		Double CLOCK lists
  *
@@ -170,10 +172,29 @@
  */
 static unsigned int bucket_order __read_mostly;
 
-static void *pack_shadow(int memcgid, pg_data_t *pgdat, unsigned long eviction)
+static void *pack_shadow(struct page *page, int memcgid, pg_data_t *pgdat, unsigned long eviction)
 {
+	unsigned int shadow_mlcache_score;
+	unsigned long abs_score = page->mlcache_score;
+
+	if (page->mlcache_score < 0)
+			abs_score = -1 * page->mlcache_score;
+
+	if (abs_score > UINT_MAX)
+			shadow_mlcache_score = UINT_MAX;
+	else
+			shadow_mlcache_score = abs_score;
+
+	/* negative score: lowest order bit == 0
+	 * positive score: lowest order bit == 1 */
+	if (page->mlcache_score < 0)
+			shadow_mlcache_score <<= 1;
+	else
+			shadow_mlcache_score = (abs_score << 1) | 1;
+
 	eviction >>= bucket_order;
 	eviction = (eviction << MEM_CGROUP_ID_SHIFT) | memcgid;
+	eviction = (eviction << MLCACHE_SCORE_SHIFT) | shadow_mlcache_score;
 	eviction = (eviction << NODES_SHIFT) | pgdat->node_id;
 	eviction = (eviction << RADIX_TREE_EXCEPTIONAL_SHIFT);
 
@@ -181,20 +202,28 @@ static void *pack_shadow(int memcgid, pg_data_t *pgdat, unsigned long eviction)
 }
 
 static void unpack_shadow(void *shadow, int *memcgidp, pg_data_t **pgdat,
-			  unsigned long *evictionp)
+			  int *mlcache_score, unsigned long *evictionp)
 {
 	unsigned long entry = (unsigned long)shadow;
 	int memcgid, nid;
+	unsigned int shadow_score;
 
 	entry >>= RADIX_TREE_EXCEPTIONAL_SHIFT;
 	nid = entry & ((1UL << NODES_SHIFT) - 1);
 	entry >>= NODES_SHIFT;
+	shadow_score = entry & ((1UL << MLCACHE_SCORE_SHIFT) - 1);
+	entry >>= MLCACHE_SCORE_SHIFT;
 	memcgid = entry & ((1UL << MEM_CGROUP_ID_SHIFT) - 1);
 	entry >>= MEM_CGROUP_ID_SHIFT;
 
 	*memcgidp = memcgid;
 	*pgdat = NODE_DATA(nid);
 	*evictionp = entry << bucket_order;
+
+	if ((shadow_score & 1) == 0)
+			*mlcache_score = -1 * (shadow_score >> 1);
+	else
+			*mlcache_score = (shadow_score >> 1);
 }
 
 /**
@@ -220,7 +249,7 @@ void *workingset_eviction(struct address_space *mapping, struct page *page)
 
 	lruvec = mem_cgroup_lruvec(pgdat, memcg);
 	eviction = atomic_long_inc_return(&lruvec->inactive_age);
-	return pack_shadow(memcgid, pgdat, eviction);
+	return pack_shadow(page, memcgid, pgdat, eviction);
 }
 
 /**
@@ -232,7 +261,7 @@ void *workingset_eviction(struct address_space *mapping, struct page *page)
  *
  * Returns %true if the page should be activated, %false otherwise.
  */
-bool workingset_refault(void *shadow)
+bool workingset_refault(void *shadow, int *mlcache_score)
 {
 	unsigned long refault_distance;
 	unsigned long active_file;
@@ -243,7 +272,7 @@ bool workingset_refault(void *shadow)
 	struct pglist_data *pgdat;
 	int memcgid;
 
-	unpack_shadow(shadow, &memcgid, &pgdat, &eviction);
+	unpack_shadow(shadow, &memcgid, &pgdat, mlcache_score, &eviction);
 
 	rcu_read_lock();
 	/*
