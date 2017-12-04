@@ -2,6 +2,7 @@
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
 #include <linux/slab.h>
+#include <linux/flex_array.h>
 
 #include <trace/events/mlcache.h>
 
@@ -18,6 +19,8 @@
 #define MLCACHE_MODE_SEP (':')
 #define DISABLE_CMD ("disable")
 #define MLCACHE_SCALE (100)
+#define MLCACHE_MAX_SUPPORTED_PAGES (100000)
+#define MLCACHE_MAGIC (12345)
 
 static long mlcache_pid[MAX_WATCH_LIST] = { MLCACHE_DISABLED };
 static int mlcache_cnt = 0;
@@ -26,23 +29,60 @@ static struct proc_dir_entry *root;
 static unsigned long hits;
 static unsigned long misses;
 
+struct mlcache_ucb_item {
+		long weight;
+		unsigned int plays;
+		int magic;
+};
+
+static void update_weight(struct page *page, long by) {
+		struct mlcache_ucb_item *item;
+		bool is_new_item;
+
+		struct address_space *mapping = page->mapping;
+		if (!mapping || !mapping->ucb)
+				return;
+
+		item = flex_array_get(mapping->ucb, page->index);
+		is_new_item = (item == NULL || item->magic != MLCACHE_MAGIC);
+		if (is_new_item) {
+				/* page is not in the UCB array - create it. */
+				item = kmalloc(sizeof(struct mlcache_ucb_item), GFP_KERNEL);
+				if (item == NULL) {
+						printk(KERN_INFO "Failed to allocate new UCB item at index %ld\n", (long) page->index);
+						return;
+				}
+
+				item->weight = 0;
+				item->plays = 0;
+				item->magic = MLCACHE_MAGIC;
+		}
+
+		item->weight += by;
+
+		if (flex_array_put(mapping->ucb, page->index, item, 0) != 0)
+				printk(KERN_INFO "Failed to insert UCB item on index %ld (%s, %ld:%d)\n", page->index, is_new_item ? "new-item" : "existing-item", item->weight, item->plays);
+}
+
 static void update_cache_scores(pgoff_t index, struct page *page, struct address_space *mapping, bool hit) {
 		void **slot;
 		struct radix_tree_iter iter;
 
+		if (page->index >= MLCACHE_MAX_SUPPORTED_PAGES)
+				return;
+
+		if (mapping && mapping->ucb == NULL) {
+				mapping->ucb = flex_array_alloc(sizeof(struct mlcache_ucb_item), MLCACHE_MAX_SUPPORTED_PAGES, GFP_KERNEL);
+				if (mapping->ucb == NULL) {
+						printk(KERN_INFO "ERR: Failed to allocate UCB flex array\n");
+						return;
+				}
+		}
+
 		if (hit)
-				page->mlcache_weight += MLCACHE_SCALE;
+				update_weight(page, MLCACHE_SCALE);
 
 		rcu_read_lock();
-
-		if (mapping->mlcache_ucb == NULL) {
-				mapping->mlcache_ucb = kmalloc(mapping->nrpages * sizeof(long), GFP_KERNEL);
-
-				if (mapping->mlcache_ucb == NULL)
-						printk(KERN_INFO "ERR: Failed to allocate UCB array\n");
-				else
-						mapping->mlcache_ucb_state = MLCACHE_UCB_ALLOC;
-		}
 
 		radix_tree_for_each_slot(slot, &mapping->page_tree, &iter, 0) {
 			struct page *p;
@@ -64,7 +104,10 @@ static void update_cache_scores(pgoff_t index, struct page *page, struct address
 			if (p->mapping == NULL)
 					continue;
 
-			p->mlcache_weight -= MLCACHE_SCALE;
+			if (p->index >= MLCACHE_MAX_SUPPORTED_PAGES)
+				continue;
+
+			update_weight(p, -MLCACHE_SCALE);
 		}
 
 		rcu_read_unlock();

@@ -35,13 +35,10 @@
 #include <linux/delayed_call.h>
 #include <linux/uuid.h>
 #include <linux/errseq.h>
+#include <linux/flex_array.h>
 
 #include <asm/byteorder.h>
 #include <uapi/linux/fs.h>
-
-#define MLCACHE_UCB_INIT (0)
-#define MLCACHE_UCB_ALLOC (1)
-#define MLCACHE_UCB_FREED (2)
 
 struct backing_dev_info;
 struct bdi_writeback;
@@ -411,8 +408,7 @@ struct address_space {
 	struct list_head	private_list;	/* for use by the address_space */
 	void			*private_data;	/* ditto */
 	errseq_t		wb_err;
-	long *mlcache_ucb;
-	long mlcache_ucb_state;
+	struct flex_array *ucb;
 } __attribute__((aligned(sizeof(long)))) __randomize_layout;
 	/*
 	 * On most architectures that alignment is already the case; but

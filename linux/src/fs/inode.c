@@ -356,8 +356,7 @@ void address_space_init_once(struct address_space *mapping)
 	INIT_LIST_HEAD(&mapping->private_list);
 	spin_lock_init(&mapping->private_lock);
 	mapping->i_mmap = RB_ROOT_CACHED;
-	mapping->mlcache_ucb = NULL;
-	mapping->mlcache_ucb_state = MLCACHE_UCB_INIT;
+	mapping->ucb = NULL;
 }
 EXPORT_SYMBOL(address_space_init_once);
 
@@ -565,9 +564,9 @@ static void evict(struct inode *inode)
 	if (S_ISCHR(inode->i_mode) && inode->i_cdev)
 		cd_forget(inode);
 
-	if (mapping != NULL && mapping->mlcache_ucb != NULL && mapping->mlcache_ucb_state == MLCACHE_UCB_ALLOC) {
-			kfree(inode->i_mapping->mlcache_ucb);
-			mapping->mlcache_ucb_state = MLCACHE_UCB_FREED;
+	if (mapping && mapping->ucb) {
+			flex_array_free(mapping->ucb);
+			mapping->ucb = NULL;
 	}
 
 	remove_inode_hash(inode);
