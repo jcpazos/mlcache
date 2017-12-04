@@ -18,8 +18,6 @@
 #define MLCACHE_MODE_SEP (':')
 #define DISABLE_CMD ("disable")
 #define MLCACHE_SCALE (100)
-#define MLCACHE_MAX_SUPPORTED_PAGES (100000)
-#define MLCACHE_MAGIC (12345)
 
 static long mlcache_pid[MAX_WATCH_LIST] = { MLCACHE_DISABLED };
 static int mlcache_cnt = 0;
