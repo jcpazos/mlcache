@@ -210,7 +210,7 @@ static void *pack_shadow(struct page *page, int memcgid, pg_data_t *pgdat, unsig
 }
 
 static void unpack_shadow(void *shadow, int *memcgidp, pg_data_t **pgdat,
-			  int *mlcache_score, unsigned long *evictionp)
+			  int *mlcache_score, unsigned int *mlcache_plays, unsigned long *evictionp)
 {
 	unsigned long entry = (unsigned long)shadow;
 	int memcgid, nid;
@@ -235,6 +235,8 @@ static void unpack_shadow(void *shadow, int *memcgidp, pg_data_t **pgdat,
 			*mlcache_score = -1 * (shadow_score >> 1);
 	else
 			*mlcache_score = (shadow_score >> 1);
+
+	*mlcache_plays = shadow_plays;
 }
 
 /**
@@ -272,7 +274,7 @@ void *workingset_eviction(struct address_space *mapping, struct page *page)
  *
  * Returns %true if the page should be activated, %false otherwise.
  */
-bool workingset_refault(void *shadow, int *mlcache_score)
+bool workingset_refault(void *shadow, int *mlcache_score, unsigned int *mlcache_plays)
 {
 	unsigned long refault_distance;
 	unsigned long active_file;
@@ -283,7 +285,7 @@ bool workingset_refault(void *shadow, int *mlcache_score)
 	struct pglist_data *pgdat;
 	int memcgid;
 
-	unpack_shadow(shadow, &memcgid, &pgdat, mlcache_score, &eviction);
+	unpack_shadow(shadow, &memcgid, &pgdat, mlcache_score, mlcache_plays, &eviction);
 
 	rcu_read_lock();
 	/*
