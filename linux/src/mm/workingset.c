@@ -17,6 +17,7 @@
 #include <linux/mm.h>
 
 #define MLCACHE_SCORE_SHIFT (sizeof(unsigned int) * 8)
+#define MLCACHE_NUM_PLAYS_SHIFT (sizeof(unsigned short) * 8)
 
 /*
  *		Double CLOCK lists
@@ -175,6 +176,7 @@ static unsigned int bucket_order __read_mostly;
 static void *pack_shadow(struct page *page, int memcgid, pg_data_t *pgdat, unsigned long eviction)
 {
 	unsigned int shadow_mlcache_score;
+	unsigned short shadow_mlcache_plays;
 	unsigned long abs_score = page->mlcache_score;
 
 	if (page->mlcache_score < 0)
@@ -192,9 +194,15 @@ static void *pack_shadow(struct page *page, int memcgid, pg_data_t *pgdat, unsig
 	else
 			shadow_mlcache_score = (abs_score << 1) | 1;
 
+	if (page->mlcache_plays > USHRT_MAX)
+			shadow_mlcache_plays = USHRT_MAX;
+	else
+			shadow_mlcache_plays = page->mlcache_plays;
+
 	eviction >>= bucket_order;
 	eviction = (eviction << MEM_CGROUP_ID_SHIFT) | memcgid;
 	eviction = (eviction << MLCACHE_SCORE_SHIFT) | shadow_mlcache_score;
+	eviction = (eviction << MLCACHE_NUM_PLAYS_SHIFT) | shadow_mlcache_plays;
 	eviction = (eviction << NODES_SHIFT) | pgdat->node_id;
 	eviction = (eviction << RADIX_TREE_EXCEPTIONAL_SHIFT);
 
@@ -207,10 +215,13 @@ static void unpack_shadow(void *shadow, int *memcgidp, pg_data_t **pgdat,
 	unsigned long entry = (unsigned long)shadow;
 	int memcgid, nid;
 	unsigned int shadow_score;
+	unsigned short shadow_plays;
 
 	entry >>= RADIX_TREE_EXCEPTIONAL_SHIFT;
 	nid = entry & ((1UL << NODES_SHIFT) - 1);
 	entry >>= NODES_SHIFT;
+	shadow_plays = entry & ((1UL << MLCACHE_NUM_PLAYS_SHIFT) - 1);
+	entry >>= MLCACHE_NUM_PLAYS_SHIFT;
 	shadow_score = entry & ((1UL << MLCACHE_SCORE_SHIFT) - 1);
 	entry >>= MLCACHE_SCORE_SHIFT;
 	memcgid = entry & ((1UL << MEM_CGROUP_ID_SHIFT) - 1);
