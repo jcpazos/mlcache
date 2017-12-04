@@ -803,6 +803,7 @@ int add_to_page_cache_lru(struct page *page, struct address_space *mapping,
 {
 	void *shadow = NULL;
 	int ret;
+	int mlcache_score;
 
 	__SetPageLocked(page);
 	ret = __add_to_page_cache_locked(page, mapping, offset,
@@ -819,8 +820,9 @@ int add_to_page_cache_lru(struct page *page, struct address_space *mapping,
 		 * get overwritten with something else, is a waste of memory.
 		 */
 		if (!(gfp_mask & __GFP_WRITE) &&
-		    shadow && workingset_refault(shadow)) {
+		    shadow && workingset_refault(shadow, &mlcache_score)) {
 			SetPageActive(page);
+			page->mlcache_score = mlcache_score;
 			workingset_activation(page);
 		} else
 			ClearPageActive(page);

@@ -295,7 +295,7 @@ struct vma_swap_readahead {
 
 /* linux/mm/workingset.c */
 void *workingset_eviction(struct address_space *mapping, struct page *page);
-bool workingset_refault(void *shadow);
+bool workingset_refault(void *shadow, int *mlcache_score);
 void workingset_activation(struct page *page);
 void workingset_update_node(struct radix_tree_node *node, void *private);
 
