@@ -20,6 +20,8 @@
 #define MLCACHE_MODE_SEP (':')
 #define DISABLE_CMD ("disable")
 #define MLCACHE_SCALE (100)
+#define MLCACHE_MAX_SUPPORTED_PAGES (100000)
+#define MLCACHE_MAGIC (12345)
 
 static long mlcache_pid[MAX_WATCH_LIST] = { MLCACHE_DISABLED };
 static int mlcache_cnt = 0;
@@ -28,21 +30,30 @@ static struct proc_dir_entry *root;
 static unsigned long hits;
 static unsigned long misses;
 static unsigned long t;
+static long weight_average = 0;
+static long items_in_cache = 0;
 
 static unsigned long upperBound(int step, int numPlays) {
-	//indexing from 0
-	if (step !=0 && numPlays != 0) {
-		return int_sqrt(MLCACHE_SCALE*MLCACHE_SCALE*2*ilog2(MLCACHE_SCALE*MLCACHE_SCALE*(step+1)) / numPlays);
-	}
-	return 0;
+		//indexing from 0
+		if (step !=0 && numPlays != 0) {
+				return int_sqrt(MLCACHE_SCALE*MLCACHE_SCALE*2*ilog2(MLCACHE_SCALE*MLCACHE_SCALE*(step+1)) / numPlays);
+		}
+		return 0;
 }
 
-static void update_page_score(struct page *page, long by) {
+static void update_page_score(struct page *page, long by, bool hit) {
 		if (!page->mapping)
 				return;
-		page->mlcache_score -= by;
-		page->mlcache_score = page->mlcache_score + upperBound(t-1, page->mlcache_plays) - upperBound(t, page->mlcache_plays)*page->mlcache_plays;
+		if (hit) {
+				page->mlcache_score -= by;
+				page->mlcache_score = page->mlcache_score + upperBound(t-1, page->mlcache_plays) - upperBound(t, page->mlcache_plays)*page->mlcache_plays;
+		} else {
+				page->mlcache_score = weight_average;
+		}
+}
 
+static void update_average(struct page *page) {
+	weight_average = (weight_average*(items_in_cache-1) + page->mlcache_score)/items_in_cache;
 }
 
 static void update_cache_scores(pgoff_t index, struct page *page, struct address_space *mapping, bool hit) {
@@ -50,7 +61,7 @@ static void update_cache_scores(pgoff_t index, struct page *page, struct address
 		struct radix_tree_iter iter;
 
 		if (hit)
-				update_page_score(page, MLCACHE_SCALE);
+				update_page_score(page, MLCACHE_SCALE, hit);
 
 		rcu_read_lock();
 
@@ -74,7 +85,7 @@ static void update_cache_scores(pgoff_t index, struct page *page, struct address
 			if (p->mapping == NULL)
 					continue;
 
-			update_page_score(p, -MLCACHE_SCALE);
+			update_page_score(p, -MLCACHE_SCALE, !hit);
 		}
 
 		rcu_read_unlock();
@@ -174,7 +185,7 @@ static void mlcache_pageget(void *data, pgoff_t off, pid_t pid, struct page *pag
 		else
 				match = false;
 
-		if (match) {
+		if (match) {				
 				if (hit)
 						hits++;
 				else
@@ -182,6 +193,8 @@ static void mlcache_pageget(void *data, pgoff_t off, pid_t pid, struct page *pag
 
 				t++;
 				update_cache_scores(off, page, mapping, hit);
+				items_in_cache++;
+				update_average(page);
 		}
 
 }
