@@ -245,6 +245,8 @@ struct page_frag_cache {
 	 */
 	unsigned int		pagecnt_bias;
 	bool pfmemalloc;
+
+	long mlcache_score;
 };
 
 typedef unsigned long vm_flags_t;
