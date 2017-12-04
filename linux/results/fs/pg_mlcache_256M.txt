@@ -1,0 +1,14 @@
+root@valiant:~# ./fs.sh
+MLCache is watching the tree under process 1704
+removed '.cache.mk'
+removed 'cscope.files'
+removed 'cscope.out'
+removed 'cscope.out.in'
+removed 'cscope.out.po'
+  GEN     cscope
+
+real	10m0.114s
+user	2m24.715s
+sys	5m59.834s
+root@valiant:~# cat /proc/mlcache/1704
+Hits: 407990 | Misses: 18246

@@ -1,0 +1,12 @@
+root@valiant:~# ./vanilla.pg.sh 
+starting vacuum...end.
+transaction type: SELECT only
+scaling factor: 600
+query mode: simple
+number of clients: 4
+number of threads: 2
+duration: 720 s
+number of transactions actually processed: 47016
+latency average: 61.264 ms
+tps = 65.291026 (including connections establishing)
+tps = 65.293057 (excluding connections establishing)
