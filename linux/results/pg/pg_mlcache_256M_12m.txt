@@ -1,0 +1,35 @@
+root@valiant:~# cat pg.sh
+set -e
+echo disable >/proc/mlcache/filter
+echo tree:1 >/proc/mlcache/filter
+cat /proc/mlcache/filter
+su - postgres -c 'pgbench -c 4 -j 2 -T 720 disk'
+root@valiant:~# ./pg.sh
+MLCache is watching the tree under process 1
+starting vacuum...end.
+transaction type: TPC-B (sort of)
+scaling factor: 600
+query mode: simple
+number of clients: 4
+number of threads: 2
+duration: 720 s
+number of transactions actually processed: 21517
+latency average: 133.854 ms
+tps = 29.883203 (including connections establishing)
+tps = 29.884226 (excluding connections establishing)
+Hits: 44330 | Misses: 226
+
+root@valiant:~# ./pg.sh
+MLCache is watching the tree under process 1
+starting vacuum...end.
+transaction type: TPC-B (sort of)
+scaling factor: 600
+query mode: simple
+number of clients: 4
+number of threads: 2
+duration: 720 s
+number of transactions actually processed: 21154
+latency average: 136.160 ms
+tps = 29.377111 (including connections establishing)
+tps = 29.378152 (excluding connections establishing)
+Hits: 43440 | Misses: 242
