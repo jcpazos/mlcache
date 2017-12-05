@@ -1,0 +1,4 @@
+real  9m21.296s
+user  2m52.124s
+sys   4m36.337s
+Hits: 413613 | Misses: 12623
