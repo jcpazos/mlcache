@@ -23,3 +23,5 @@ number of transactions actually processed: 22808
 latency average: 126.360 ms
 tps = 31.655576 (including connections establishing)
 tps = 31.656559 (excluding connections establishing)
+
+Hits: 45442 | Misses: 48

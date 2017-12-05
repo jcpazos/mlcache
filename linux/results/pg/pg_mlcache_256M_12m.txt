@@ -33,3 +33,6 @@ latency average: 136.160 ms
 tps = 29.377111 (including connections establishing)
 tps = 29.378152 (excluding connections establishing)
 Hits: 43440 | Misses: 242
+
+
+Hits: 43824 | Misses: 224
