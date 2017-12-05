@@ -27,10 +27,14 @@ static int mlcache_mode = -1;
 static struct proc_dir_entry *root;
 static unsigned long hits;
 static unsigned long misses;
+
+#ifdef CONFIG_MLCACHE_ACTIVE
 static unsigned long t;
 static long weight_average = 0;
 static long items_in_cache = 0;
+#endif
 
+#ifdef CONFIG_MLCACHE_ACTIVE
 static unsigned long upperBound(int step, int numPlays) {
 		//indexing from 0
 		if (step !=0 && numPlays != 0) {
@@ -88,6 +92,7 @@ static void update_cache_scores(pgoff_t index, struct page *page, struct address
 
 		rcu_read_unlock();
 }
+#endif
 
 static int mlcache_hist_show(struct seq_file *m, void *v) {
 		seq_printf(m, "Hits: %ld | Misses: %ld\n", hits, misses);
@@ -189,15 +194,23 @@ static void mlcache_pageget(void *data, pgoff_t off, pid_t pid, struct page *pag
 				else
 						misses++;
 
+#ifdef CONFIG_MLCACHE_ACTIVE
 				t++;
 				update_cache_scores(off, page, mapping, hit);
 				items_in_cache++;
 				update_average(page);
+#endif
 		}
 
 }
 
 static int mlcache_filter_show(struct seq_file *m, void *v) {
+#ifdef CONFIG_MLCACHE_ACTIVE
+		seq_printf(m, "[Active] ");
+#else
+		seq_printf(m, "[Hit/Misses Only] ");
+#endif
+
 		if (mlcache_cnt == 0) {
 				seq_printf(m, "MLCache is currently not enabled.\n");
 		} else {
@@ -356,7 +369,10 @@ static int __init mlcache_init(void) {
 		root = proc_mkdir("mlcache", NULL);
 		proc_create("filter", 0666, root, &filter_fops);
 
-		hits = misses = t = 0;
+		hits = misses = 0;
+#ifdef CONFIG_MLCACHE_ACTIVE
+		t = 0;
+#endif
 		register_trace_mlcache_event(mlcache_pageget, NULL);
 		return 0;
 }

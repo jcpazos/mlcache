@@ -742,7 +742,9 @@ static int __remove_mapping(struct address_space *mapping, struct page *page,
 		if (reclaimed && page_is_file_cache(page) &&
 		    !mapping_exiting(mapping) && !dax_mapping(mapping)) {
 
+#ifdef CONFIG_MLCACHE_ACTIVE
 				page->mlcache_plays += 100;
+#endif
 				shadow = workingset_eviction(mapping, page);
 		}
 		__delete_from_page_cache(page, shadow);
@@ -1519,9 +1521,11 @@ static unsigned long isolate_lru_pages(unsigned long nr_to_scan,
 	unsigned long scan, total_scan, nr_pages;
 	LIST_HEAD(pages_skipped);
 
-	struct list_head *pos;
 	struct page *page;
+#ifdef CONFIG_MLCACHE_ACTIVE
+	struct list_head *pos;
 	struct page *curr_page;
+#endif
 	scan = 0;
 
 	for (total_scan = 0;
@@ -1530,11 +1534,15 @@ static unsigned long isolate_lru_pages(unsigned long nr_to_scan,
 
 		page = lru_to_page(src);
 
+#ifdef CONFIG_MLCACHE_ACTIVE
 		list_for_each(pos, src) {
 			curr_page = lru_to_page(pos);
 			if (curr_page && PageLRU(curr_page) && curr_page->mlcache_score > page->mlcache_score)
 				page = curr_page;
 		};
+#else
+		prefetchw_prev_lru_page(page, src, flags);
+#endif
 
 		VM_BUG_ON_PAGE(!PageLRU(page), page);
 

@@ -220,8 +220,10 @@ struct page {
 	int _last_cpupid;
 #endif
 
+#ifdef CONFIG_MLCACHE_ACTIVE
 	long mlcache_score;
 	unsigned long mlcache_plays;
+#endif
 }
 /*
  * The struct page can be forced to be double word aligned so that atomic ops

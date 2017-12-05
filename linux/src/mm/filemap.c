@@ -803,8 +803,10 @@ int add_to_page_cache_lru(struct page *page, struct address_space *mapping,
 {
 	void *shadow = NULL;
 	int ret;
+#ifdef CONFIG_MLCACHE_ACTIVE
 	int mlcache_score;
 	unsigned int mlcache_plays;
+#endif
 
 	__SetPageLocked(page);
 	ret = __add_to_page_cache_locked(page, mapping, offset,
@@ -820,11 +822,18 @@ int add_to_page_cache_lru(struct page *page, struct address_space *mapping,
 		 * data from the working set, only to cache data that will
 		 * get overwritten with something else, is a waste of memory.
 		 */
+#ifdef CONFIG_MLCACHE_ACTIVE
 		if (!(gfp_mask & __GFP_WRITE) &&
 		    shadow && workingset_refault(shadow, &mlcache_score, &mlcache_plays)) {
+#else
+		if (!(gfp_mask & __GFP_WRITE) &&
+		    shadow && workingset_refault(shadow)) {
+#endif
 			SetPageActive(page);
+#ifdef CONFIG_MLCACHE_ACTIVE
 			page->mlcache_score = mlcache_score;
 			page->mlcache_plays = mlcache_plays;
+#endif
 			workingset_activation(page);
 		} else
 			ClearPageActive(page);
