@@ -1,0 +1,12 @@
+root@valiant:~# ./vanilla.pg.sh
+starting vacuum...end.
+transaction type: TPC-B (sort of)
+scaling factor: 600
+query mode: simple
+number of clients: 4
+number of threads: 2
+duration: 720 s
+number of transactions actually processed: 21810
+latency average: 132.157 ms
+tps = 30.267104 (including connections establishing)
+tps = 30.268079 (excluding connections establishing)

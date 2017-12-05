@@ -1,11 +1,13 @@
+MLCache is watching the tree under process 1
 starting vacuum...end.
 transaction type: TPC-B (sort of)
 scaling factor: 600
 query mode: simple
 number of clients: 4
 number of threads: 2
-duration: 120 s
-number of transactions actually processed: 3814
-latency average: 126.207 ms
-tps = 31.694032 (including connections establishing)
-tps = 31.700751 (excluding connections establishing)
+duration: 720 s
+number of transactions actually processed: 21781
+latency average: 132.238 ms
+tps = 30.248577 (including connections establishing)
+tps = 30.249624 (excluding connections establishing)
+Hits: 45015 | Misses: 5
