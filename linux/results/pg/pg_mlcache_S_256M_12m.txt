@@ -1,0 +1,16 @@
+root@valiant:~# ./pg.sh
+MLCache is watching the tree under process 1
+starting vacuum...end.
+transaction type: SELECT only
+scaling factor: 600
+query mode: simple
+number of clients: 4
+number of threads: 2
+duration: 720 s
+number of transactions actually processed: 49298
+latency average: 58.425 ms
+tps = 68.464099 (including connections establishing)
+tps = 68.466474 (excluding connections establishing)
+[  735.407520] postgres (1704) used greatest stack depth: 12592 bytes left
+root@valiant:~# cat /proc/mlcache/1
+Hits: 98213 | Misses: 288

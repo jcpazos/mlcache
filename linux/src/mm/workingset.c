@@ -175,6 +175,7 @@ static unsigned int bucket_order __read_mostly;
 
 static void *pack_shadow(struct page *page, int memcgid, pg_data_t *pgdat, unsigned long eviction)
 {
+#ifdef CONFIG_MLCACHE_ACTIVE
 	unsigned int shadow_mlcache_score;
 	unsigned short shadow_mlcache_plays;
 	unsigned long abs_score = page->mlcache_score;
@@ -198,32 +199,44 @@ static void *pack_shadow(struct page *page, int memcgid, pg_data_t *pgdat, unsig
 			shadow_mlcache_plays = USHRT_MAX;
 	else
 			shadow_mlcache_plays = page->mlcache_plays;
+#endif
 
 	eviction >>= bucket_order;
 	eviction = (eviction << MEM_CGROUP_ID_SHIFT) | memcgid;
+#ifdef CONFIG_MLCACHE_ACTIVE
 	eviction = (eviction << MLCACHE_SCORE_SHIFT) | shadow_mlcache_score;
 	eviction = (eviction << MLCACHE_NUM_PLAYS_SHIFT) | shadow_mlcache_plays;
+#endif
 	eviction = (eviction << NODES_SHIFT) | pgdat->node_id;
 	eviction = (eviction << RADIX_TREE_EXCEPTIONAL_SHIFT);
 
 	return (void *)(eviction | RADIX_TREE_EXCEPTIONAL_ENTRY);
 }
 
+#ifdef CONFIG_MLCACHE_ACTIVE
 static void unpack_shadow(void *shadow, int *memcgidp, pg_data_t **pgdat,
 			  int *mlcache_score, unsigned int *mlcache_plays, unsigned long *evictionp)
+#else
+static void unpack_shadow(void *shadow, int *memcgidp, pg_data_t **pgdat,
+			  unsigned long *evictionp)
+#endif
 {
 	unsigned long entry = (unsigned long)shadow;
 	int memcgid, nid;
+#ifdef CONFIG_MLCACHE_ACTIVE
 	unsigned int shadow_score;
 	unsigned short shadow_plays;
+#endif
 
 	entry >>= RADIX_TREE_EXCEPTIONAL_SHIFT;
 	nid = entry & ((1UL << NODES_SHIFT) - 1);
 	entry >>= NODES_SHIFT;
+#ifdef CONFIG_MLCACHE_ACTIVE
 	shadow_plays = entry & ((1UL << MLCACHE_NUM_PLAYS_SHIFT) - 1);
 	entry >>= MLCACHE_NUM_PLAYS_SHIFT;
 	shadow_score = entry & ((1UL << MLCACHE_SCORE_SHIFT) - 1);
 	entry >>= MLCACHE_SCORE_SHIFT;
+#endif
 	memcgid = entry & ((1UL << MEM_CGROUP_ID_SHIFT) - 1);
 	entry >>= MEM_CGROUP_ID_SHIFT;
 
@@ -231,12 +244,14 @@ static void unpack_shadow(void *shadow, int *memcgidp, pg_data_t **pgdat,
 	*pgdat = NODE_DATA(nid);
 	*evictionp = entry << bucket_order;
 
+#ifdef CONFIG_MLCACHE_ACTIVE
 	if ((shadow_score & 1) == 0)
 			*mlcache_score = -1 * (shadow_score >> 1);
 	else
 			*mlcache_score = (shadow_score >> 1);
 
 	*mlcache_plays = shadow_plays;
+#endif
 }
 
 /**
@@ -274,7 +289,11 @@ void *workingset_eviction(struct address_space *mapping, struct page *page)
  *
  * Returns %true if the page should be activated, %false otherwise.
  */
+#ifdef CONFIG_MLCACHE_ACTIVE
 bool workingset_refault(void *shadow, int *mlcache_score, unsigned int *mlcache_plays)
+#else
+bool workingset_refault(void *shadow)
+#endif
 {
 	unsigned long refault_distance;
 	unsigned long active_file;
@@ -285,7 +304,11 @@ bool workingset_refault(void *shadow, int *mlcache_score, unsigned int *mlcache_
 	struct pglist_data *pgdat;
 	int memcgid;
 
+#ifdef CONFIG_MLCACHE_ACTIVE
 	unpack_shadow(shadow, &memcgid, &pgdat, mlcache_score, mlcache_plays, &eviction);
+#else
+	unpack_shadow(shadow, &memcgid, &pgdat, &eviction);
+#endif
 
 	rcu_read_lock();
 	/*
