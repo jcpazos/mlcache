@@ -1,0 +1,23 @@
+\section{Evaluation}
+
+The ideal applications that would benefit from the approach proposed in this document
+are long-running processes with nondeterministic access patterns. In such cases,
+a typical LRU caching strategy might not be optimal.
+
+We plan to evaluate the system by comparing the performance of applications running
+on top of it with the performance of the same application running on an unmodified
+kernel. Examples of such applications are:
+
+\begin{itemize}
+\item A database server: depending on the access patterns, a better cache policy
+is likely to produce measurable performance improvements. A good example candidate
+for this kind of test is to run PostgreSQL with different datasets and under different
+kinds of load.
+
+\item A backup utility: tools like \texttt{dump(1)} and \texttt{restore(1)} typically
+have to scan the entire file system when generating incremental backups. They are also
+likely to be sensitive to modifications at the page cache layer.
+
+\item A process that does sequential reading: we plan to measure the impact of our
+changes on tools like \texttt{grep(1)}.
+\end{itemize}
