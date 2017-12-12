@@ -1,15 +1,22 @@
 \begin{abstract}
 
-Application-controlled caching is often thought to be a more efficient
-technique than kernel-based, global policies. However, it introduces another
-issue for developers: having to profile each application individually to
-check access patterns, while possibly getting it wrong. With the rise of
-machine learning, it seems natural to offload the work to learning
+  Despite significant speed improvements in persistent storage media over
+the last decades, access to disk remains orders of magnitude slower than
+memory access. Operating systems typically employ page caches to provide
+applications with the abstraction of a fast persistence layer. However,
+memory is limited and the kernel needs to make decisions as to which blocks
+of data to evict and which to keep in memory. From an end-to-end perspective,
+application-controlled policies are thought to be a more efficient
+technique than kernel-based, global policies. However, it introduces a
+burden for developers, who need to profile each applications individually and
+make low level decisions that might impact other applications. With the recent
+rise of machine learning, it seems natural to offload the work to learning
 algorithms, so that application developers are freed from the responsibility
-of dealing with these issues, while getting the performance benefits of
-having more specialized policies for their systems.  In this document, we
-present MLCache, a proposed page cache policy that learns access patterns
-for different applications in order to improve cache hit ratios for
-subsequent runs.
+of dealing with such issues while getting the performance benefits of
+having specialized policies for their systems.  In this paper, we
+propose MLCache, a page cache policy that learns access patterns for
+different applications in order to improve cache hit ratios for subsequent
+runs. Our results show that MLCache adds low overhead on most use cases and yields
+better runtime performance for read-intensive workflows.
 
 \end{abstract}
