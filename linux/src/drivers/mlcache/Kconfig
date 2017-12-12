@@ -1,0 +1,13 @@
+config MLCACHE
+tristate "MLCache pages proc filesystem"
+depends on X86_64
+default y if X86_64
+help
+  Allows you to keep track of page cache data
+
+config MLCACHE_ACTIVE
+tristate "MLCache pages proc filesystem"
+depends on X86_64
+default y if X86_64
+help
+  Allows you to keep track of page cache data

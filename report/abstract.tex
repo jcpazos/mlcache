@@ -1,0 +1,15 @@
+\begin{abstract}
+
+Application-controlled caching is often thought to be a more efficient
+technique than kernel-based, global policies. However, it introduces another
+issue for developers: having to profile each application individually to
+check access patterns, while possibly getting it wrong. With the rise of
+machine learning, it seems natural to offload the work to learning
+algorithms, so that application developers are freed from the responsibility
+of dealing with these issues, while getting the performance benefits of
+having more specialized policies for their systems.  In this document, we
+present MLCache, a proposed page cache policy that learns access patterns
+for different applications in order to improve cache hit ratios for
+subsequent runs.
+
+\end{abstract}

@@ -1,0 +1,14 @@
+root@valiant:~# ./pg.sh
+[Active] MLCache is watching the tree under process 1
+starting vacuum...end.
+transaction type: SELECT only
+scaling factor: 600
+query mode: simple
+number of clients: 4
+number of threads: 2
+duration: 900 s
+number of transactions actually processed: 43750
+latency average: 82.291 ms
+tps = 48.607858 (including connections establishing)
+tps = 48.609202 (excluding connections establishing)
+Hits: 87664 | Misses: 252
