@@ -1,3 +1,43 @@
 \section{Introduction}
 
-Application-controlled caching has been proposed as an alternative to global caching policies that might not be appropriate for different types of applications, each with different caching needs. In particular, monolithic systems like Linux lack the flexibility to meet applications' requirements. These approaches often show beneficial results, especially when incorporated with different techniques such as disk scheduling, and prefetching \cite{Cao:1996}. The main issue, however, is that application developers would suffer if they are not keen enough to be able to provide a good policy for their applications. This problem becomes especially hard when taking into account the interplay between several concurrent processes, which are constantly competing for resources. Additionally, these policies should be adaptable to different workloads, possibly changing on the fly. Thus, this design is not practical. A potential solution to this complex problem is the use of machine learning, through the use of unsupervised techniques, or supervised techniques that require minimal input from a developer. We believe that this approach should provide similar enhancements to those previously seen from application-controlled caching policies, while being substantially easier to maintain, and ideally hiding the complexities from the developer by pushing the work to the kernel. We build a prototype on top of the Linux LRU implementation, keeping track of scores for pages in the cache, updating them at each step, either rewarding or penalizing as we see fit.
+The page cache (sometimes called buffer cache) is a standard component in an
+operating system: its main purpose is to provide user space applications with
+an abstraction of a fast persistence layer. That is achieved by keeping blocks
+of data read from the file system in main memory. When applications
+subsequently request to read the same block of data, the kernel can immediately
+provide that data to the application without issuing a request to the
+considerably slower disk device. When memory allocated for the page cache is
+exceeded, the kernel needs to decide what pages to free; in other words, the
+operating system implements an \emph{eviction policy}.  This policy allows the
+kernel to determine the relative importance of every page currently in the
+cache. Typically, eviction policies --- both in operating systems and in other
+systems that make use of cached content --- employ LRU (Least Recently Used),
+due to its simple implementation and good empirical results
+\cite{Denning:1968}.
+
+Application-controlled strategies have been proposed in the past as an
+alternative to global caching policies that might not be appropriate for
+different types of applications, each with different caching needs. In
+particular, monolithic operating systems such as Linux, FreeBSD and Windows
+lack the flexibility to meet specific application requirements.
+Application-centered approaches often show beneficial results, especially when
+incorporated with different techniques such as disk scheduling, and prefetching
+\cite{Cao:1996}. This flexibility is also aligned with the end-to-end argument
+\cite{Saltzer:1984}, allowing developers to choose different policies based on
+their specific needs. However, it also introduces two undesired consequences:
+firstly, applications need to be changed in order to benefit from the
+improvements; secondly, it requires application developers to think in terms of
+low level policies that should be abstracted away by the kernel.  This problem
+becomes especially hard when taking into account the interplay between several
+concurrent processes, which are constantly competing for resources.
+Additionally, these policies should be adaptable to different workloads,
+possibly changing on the fly. Thus, this design is not practical. In this work,
+we present MLCache as an attempt to bridge the gap between the potential
+performance gains of an application specific policy and the ease of use of a
+global, general purpose kernel policy. A potential solution to this complex
+problem is to employ machine learning strategies, through the use of
+unsupervised techniques or supervised techniques that require minimal input
+from a developer. We believe that this approach provides similar enhancements
+to those previously seen from application-controlled caching policies, while
+being substantially easier to maintain, and ideally hiding the complexities
+from the developer by pushing the work to the kernel.
