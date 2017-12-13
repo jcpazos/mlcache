@@ -1,4 +1,4 @@
-\section{Learning Model}
+\section{Learning Model} \label{section:learning}
 
 We apply a simple linear model to keep track of our scores. This provides us with two benefits: the implementation is simple, and the overhead introduced by the constant processing of the scores is minimized while maintaining relevance. We use a multi-armed bandit approach for our model, using the UCB1 algorithm. The possible actions to choose from are the current k pages in the cache, and we maximize according to the following formula at time step $t>0$: $$\max_{1 \leq j \leq k} \bar{x}_{j} + \sqrt{\frac{2\log(t)}{n_{j}}}$$  where $\bar{x}_{j}$ is the average reward obtained from action $j$, $n_{j}$ is the number of times action j has been played.
 
