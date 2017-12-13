@@ -81,3 +81,56 @@ shadow page is found at the requested offset, the new page is added to the page
 cache and inserted directly into the active LRU list. The use of shadow pages
 is a cheap optimization (the shadow page is 16 bytes long, whereas a page is 4 KB
 in x86) that can potentially avoid workflows that would cause thrashing.
+
+\subsection{Page Scoring}
+
+MLCache automatically calculates the score for each page based on the algorithm
+described in Section~\ref{section:learning}. Specifically, for every page definition
+(\texttt{struct page}), MLCache adds two new fields: the current page score, and
+the number of times the page was previously evicted. In order for the algorithm
+to work, the page scores need to remain accurate at all times.
+
+Fortunately, Linux supports a \emph{tracepoint} API. More precisely, events can be
+defined and, once included in a source file, be triggered with certain arguments.
+MLCache introduces a new tracepoint, \texttt{mlcache\_event}, which is supposed
+to be used whenever a page is requested. The event accepts a series of parameters
+including a pointer to the \texttt{struct address\_space} involved, a pointer to the
+page itself, the offset requested, and whether it was a hit or a miss. The newly
+added event is triggered from within the \texttt{find\_get\_page} function in Linux.
+
+\subsection{The \texttt{mlcache} Driver}
+
+MLCache also introduces a new Linux driver, which coordinates its execution. The
+driver's main tasks are:
+
+\begin{description}
+  \item[Update page scores] When this driver is loaded, it registers a function to be
+    executed whenever the \texttt{mlcache\_event} tracepoint is triggered. This function
+    rewards the page being requested and penalizes the other pages in the cache by
+    traversing the associated radix tree.
+
+  \item[Allow configuration by system operators] While
+    MLCache can potentially improve the performance of a larget class of applications,
+    it is convenient to allow the system operator to selectively choose which applications
+    should use MLCache's algorithms. That is done by writing to the \texttt{/proc/mlcache/}
+    \texttt{filter}
+    file that MLCache creates when it is loaded. Currently, MLCache is able to monitor either
+    a list of processes or the process tree under a certain ID. For instance, the command:
+\begin{verbatim}
+    echo tree:$$ >/proc/mlcache/filter
+\end{verbatim}
+    causes MLCache to monitor every process
+    under the running shell.
+
+  \item[Read collected information] When monitoring a process, MLCache will create a file
+    under the \texttt{/proc/mlcache} directory named after the identifier of the monitored process.
+    By reading that file, system operators can analyze statistics about page cache hits/misses.
+\end{description}
+
+\subsection{Leveraging Shadow Pages}
+
+We use shadow pages.
+
+\subsection{Cache Eviction}
+
+We perform a linear scan.
