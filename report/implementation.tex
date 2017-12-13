@@ -71,7 +71,13 @@ radix tree approach, as defined in Linux 4.14.0-rc7.
   \label{fig:radix}
 \end{figure}
 
-\subsubsection{Shadow Pages}
+Another important aspect of the Linux implementation of radix trees is that nodes
+can be marked with \emph{tags} --- the page cache uses this functionality to
+indicate whether pages are dirty, unevictable, or a series of other attributes.
+Nodes may also be marked \emph{exceptional}, a feature that is used to detect
+shadow pages in the radix tree.
+
+\subsubsection{Shadow Pages} \label{sss:shadow}
 
 Another important optimization employed by the Linux page cache implementation
 is the use of \emph{shadow pages}. Whenever a page is evicted, a special entry
@@ -79,7 +85,7 @@ is the use of \emph{shadow pages}. Whenever a page is evicted, a special entry
 by the recently evicted page in the radix tree. When a page lookup occurs and a
 shadow page is found at the requested offset, the new page is added to the page
 cache and inserted directly into the active LRU list. The use of shadow pages
-is a cheap optimization (the shadow page is 16 bytes long, whereas a page is 4 KB
+is a cheap optimization (the shadow page is 8 bytes long, whereas a page is 4 KB
 in x86) that can potentially avoid workflows that would cause thrashing.
 
 \subsection{Page Scoring}
@@ -129,8 +135,35 @@ driver's main tasks are:
 
 \subsection{Leveraging Shadow Pages}
 
-We use shadow pages.
+As described in \ref{sss:shadow}, Linux uses shadow pages to optimize access to frequently accessed
+pages even if they happen to be evicted due to high memory pressure. In our work, we extend the information
+contained in the shadow page to include MLCache's scoring data. More specifically, whenever a page
+is evicted from the page cache, we include both the current page score, as well as the number of times
+the page was previously evicted in the created shadow page. Thus, when a page request finds a shadow
+page, it can be brought back to the cache with the score it used to have before evicition. Figure~\ref{fig:shadow}
+illustrates how the shadow page is structured when MLCache is enabled.
+
+\begin{figure}[h]
+  \includegraphics[scale=0.4]{img/ShadowPage.png}
+  \caption{The Linux shadow page when MLCache is enabled. The shadow page is 8 bytes long
+  and contains a series of data (CPU node identifier, a radix tree entry indicating this is
+  an exceptional node, among others). MLCache adds a 4 bytes long page score, as well as a
+  2 bytes long counter, indicating the number of times that page was previously evicted in the past}
+  \label{fig:shadow}
+\end{figure}
 
 \subsection{Cache Eviction}
 
-We perform a linear scan.
+The final component of MLCache's implementation is the changed cache eviction policy. Cache eviction
+on Linux happens when the amount of memory consumed by the page cache is above a certain threshold.
+When pages need to be evicted, kernel threads will be awaken and both the active and inactive
+LRU lists may be \emph{shrinked}. The shrinking process happens by evicting the last \texttt{n}
+pages in an LRU list (where the value of \texttt{n} is determined at runtime depending on the
+system's memory pressure.)
+
+MLCache changes the LRU shrinking process by choosing the pages with the worst score. Unfortunately,
+LRU lists are maintained as a linked list of pages, and choosing the pages to evict in LRU is a
+constant time operation. Since MLCache needs to determine which pages have the worst score overall,
+a linear scan over the LRU list is introduced in this step. Even though better data structures could
+be leveraged in order to optimize the eviction process, we see positive results for some workloads
+in our benchmarks, despite this unfavorable situation.
