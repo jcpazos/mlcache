@@ -1,18 +1,44 @@
 \section{Limitations and Future Work}
 Our current prototype has several limitations:
-\begin{itemize}
-	
-\item
-The lack of precision mentioned before from not being able to use floating point operations, although we expect this to not be too much of an issue, as the isqrt operation is actually quite precise given our scaling factor.
 
-\item
-Although we explicitly chose the model to not bring unnecessary overhead to the kernel, our prototype is built on top of the Linux LRU implementation, and as such, introduces much overhead to the current system during eviction: for each page to evict, we scan through a linked list to find the maximum score. Ideally, we would have a different data structure to keep track of scores, such as a priority queue. This would greatly decrease the runtime of system overall.  
+\begin{description}
+  \item[Lack of accuracy in the calculations] There is no easy way to perform
+    floating point operations on kernel space. However, we expect this not to
+    be a prohibitive issue, as the \texttt{isqrt} operation is sufficiently
+    precise given our scaling factor.
 
-\item
-Ideally we would have a persistent score per page throughout several executions of a program. This would provide greater accuracy. Unfortunately, due to the early state of the project, we haven't been able to achieve this, along with an initial training phase which would also bolster the accuracy of the scores. Because of this lack of persistent scores throughout all pages, every time a new page is introduced to the cache, we assign an average score across all pages, which may make the page look better or worse than it actually is to the algorithm. Memory limitations also add to this issue, as the pages referenced by a file are in a constant state of flux, and we were experiencing heavy memory usage when keeping track of all scores.
+  \item[Improper data structures for our purposes] Although we explicitly chose
+    a lightweight model to avoid bringing unnecessary overhead to the kernel,
+    our prototype is built on top of the Linux LRU implementation. Since that
+    implementation is extremely optimized for that policy, MLCache introduces
+    significant overhead to the current system during eviction: for each page
+    to evict, we scan through a linked list to find the worst scoring page.
+    Ideally, we would have a different data structure to keep track of scores,
+    such as a priority queue. This would greatly decrease the runtime of system
+    overall.
 
-\end{itemize}
-We would like to evaluate our implementation against the optimal eviction strategy, as this would give us some idea of how close we are from getting to it; since our goal is not to just beat Linux, but also allow applications to achieve better caching without having to be altered manually.
+  \item[No training phase] Ideally, we would have a persistent score per page
+    throughout several executions of a program. This would provide greater
+    accuracy. Unfortunately, due to the early state of the project, we have not
+    been able to achieve this. Due to this limitation, every time a new page is
+    introduced to the cache, we assign an average score across all pages, which
+    may make the page look better or worse than it actually is to the
+    algorithm. Memory limitations also add to this issue, as the pages
+    referenced by a file are in a constant state of flux, and we
+    experienced heavy memory usage when keeping track of all scores.
+
+  \item[Memory overhead] When enabled, MLCache adds two new \texttt{unsigned long}
+    fields to the definition of a page on Linux (\texttt{struct page}.) This
+    incurs an overhead of approximately 15\% on a default x86 kernel configuration.
+    We could potentially reduce that overhead by keeping scores only for pages
+    that belong to processes that are currently monitored by MLCache.
+
+\end{description}
+
+We would like to evaluate our implementation against the optimal eviction
+strategy, as this would give us a better idea of how close we are from getting
+to it --- after all, our main goal is to allow applications to achieve better
+caching without having to be altered manually.
 
 Possible enhancements to this approach would be to integrate other techniques,
 like disk scheduling, and prefetching.  This is rather complex in practice,
