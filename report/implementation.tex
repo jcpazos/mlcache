@@ -13,7 +13,7 @@ approach: the \emph{active} and \emph{inactive} list. The active list contains
 pages that have been accessed more than once in the past, whereas the inactive
 list holds the set of pages that have been accessed only once. In other words,
 the active list attempts to capture \emph{frequency} and the inactive list
-represents \emph{recency}.
+captures \emph{recency}.
 
 The following subsections introduce the main concepts that are relevant to our
 work on MLCache. Figure~\ref{fig:lru} describes the two-list approach used in Linux.
@@ -116,7 +116,7 @@ driver's main tasks are:
     traversing the associated radix tree.
 
   \item[Allow configuration by system operators] While
-    MLCache can potentially improve the performance of a larget class of applications,
+    MLCache can potentially improve the performance of a large class of applications,
     it is convenient to allow the system operator to selectively choose which applications
     should use MLCache's algorithms. That is done by writing to the \texttt{/proc/mlcache/}
     \texttt{filter}
@@ -145,10 +145,12 @@ illustrates how the shadow page is structured when MLCache is enabled.
 
 \begin{figure}[h]
   \includegraphics[scale=0.4]{img/ShadowPage.png}
-  \caption{The Linux shadow page when MLCache is enabled. The shadow page is 8 bytes long
-  and contains a series of data (CPU node identifier, a radix tree entry indicating this is
-  an exceptional node, among others). MLCache adds a 4 bytes long page score, as well as a
-  2 bytes long counter, indicating the number of times that page was previously evicted in the past}
+  \caption{The Linux shadow page when MLCache is enabled. Each square
+  represents one byte of information.  The shadow page is 8 bytes long and
+  contains a series of data --- CPU node identifier, a radix tree entry indicating
+  this is an exceptional node, among others. MLCache adds a 4 bytes long page
+  score, as well as a 2 bytes long counter, indicating the number of times that
+  page was previously evicted.}
   \label{fig:shadow}
 \end{figure}
 
