@@ -1,3 +1,16 @@
-\section{Conclusions}
+\section{Conclusion}
 
-Our prototype MLCache has proven to be on par with the Linux implementation for the Postgres benchmark. This shows great promise, because even with our current limitations, we have been able to compete against Linux. For other results, like the Cscope benchmark, we are still in the process of improving the implementation, so even for these cases, the performance gap will diminish as our design matures. Overall, we have shown that an adaptive approach to caching can be beneficial, as the design was rather simple. With our current implementation, we didn't have to alter the default Linux code very much; in this sense, we achieved our goals of getting closer to optimal without having to manually optimize the strategies for our tested applications.
+Our prototype MLCache has proven to be on par with the Linux implementation for
+read-intensive workflows such as the the \textbf{pgbench} benchmark. This shows
+great promise, since a lot of improvements are possible and yet we had
+comparable results when compared to the standard Linux LRU implementation. For
+other results, like the \textbf{cscope} benchmark, we are still in the process
+of improving the implementation so, even for these cases, the performance gap
+will diminish as our design matures. Overall, with a very simple design, we
+have shown that an adaptive approach to caching can be beneficial to
+potentially different kinds of applications. This is only the first step;
+further work is needed in order to use optimized data structures for our
+eviction policy, which could bring even greater performance gains.
+Most importantly, we believe that machine learning techniques
+can be leveraged in order to provide increased performance to existing,
+unchanged applications.
