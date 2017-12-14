@@ -14,7 +14,7 @@ Our current prototype has several limitations:
     significant overhead to the current system during eviction: for each page
     to evict, we scan through a linked list to find the worst scoring page.
     Ideally, we would have a different data structure to keep track of scores,
-    such as a priority queue. This would greatly decrease the runtime of system
+    such as a priority queue. This would greatly decrease the runtime of the system
     overall.
 
   \item[No training phase] Ideally, we would have a persistent score per page

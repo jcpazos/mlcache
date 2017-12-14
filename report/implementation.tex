@@ -156,7 +156,7 @@ illustrates how the shadow page is structured when MLCache is enabled.
 
 \subsection{Cache Eviction}
 
-The final component of MLCache's implementation is the changed cache eviction policy. Cache eviction
+The final component of MLCache's implementation is the modified cache eviction policy. Cache eviction
 on Linux happens when the amount of memory consumed by the page cache is above a certain threshold.
 When pages need to be evicted, kernel threads will be awaken and both the active and inactive
 LRU lists may be \emph{shrinked}. The shrinking process happens by evicting the last \texttt{n}

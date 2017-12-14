@@ -7,7 +7,7 @@ of data read from the file system in main memory. When applications
 subsequently request to read the same block of data, the kernel can immediately
 provide that data to the application without issuing a request to the
 considerably slower disk device. When memory allocated for the page cache is
-exceeded, the kernel needs to decide what pages to free; in other words, the
+exceeded, the kernel needs to decide which pages to free; in other words, the
 operating system implements an \emph{eviction policy}.  This policy allows the
 kernel to determine the relative importance of every page currently in the
 cache. Typically, eviction policies --- both in operating systems and in other
