@@ -10,16 +10,16 @@
 #define PROCNAME ("mlcache")
 #define MLCACHE_DISABLED (0)
 #define MAX_WATCH_LIST (50) /* watch at most 10 processes */
-#define LIST_SPEC ("list")
-#define TREE_SPEC ("tree")
+#define LIST_SPEC ("list") /* watch a list of comma-separated processes */
+#define TREE_SPEC ("tree") /* watch every process under a root process */
 #define LIST_MODE (0)
 #define TREE_MODE (1)
 #define MAX_PID_LEN (10) /* each PID should have be most 10 bytes long */
 #define MAX_WRITE_LEN (MAX_PID_LEN * MAX_WATCH_LIST) /* write at most 100 bytes at a time */
 #define MLCACHE_PID_SEP (',') /* PID separator when defining which processes to watch */
-#define MLCACHE_MODE_SEP (':')
-#define DISABLE_CMD ("disable")
-#define MLCACHE_SCALE (100)
+#define MLCACHE_MODE_SEP (':') /* defintions are in the form {list,tree}:{ID}* */
+#define DISABLE_CMD ("disable") /* MLCache can be disabled by writing "disable" to the filter file */
+#define MLCACHE_SCALE (100) /* the learning model's scaling factor */
 
 static long mlcache_pid[MAX_WATCH_LIST] = { MLCACHE_DISABLED };
 static int mlcache_cnt = 0;
